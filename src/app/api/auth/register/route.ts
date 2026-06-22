@@ -14,26 +14,29 @@ function createAdminClient() {
 }
 
 export async function POST(req: NextRequest) {
+  // Kiểm tra env vars bắt buộc
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error("[register] SUPABASE_SERVICE_ROLE_KEY is not set");
+    return NextResponse.json({ error: "[Config] SUPABASE_SERVICE_ROLE_KEY chưa được cấu hình." }, { status: 500 });
+  }
+  if (!process.env.GMAIL_OAUTH_USER || !process.env.GMAIL_CLIENT_ID || !process.env.GMAIL_REFRESH_TOKEN) {
+    console.error("[register] Gmail OAuth2 env vars are not set");
+    return NextResponse.json({ error: "[Config] Gmail OAuth2 chưa được cấu hình." }, { status: 500 });
+  }
+
   try {
     const { email, password, fullName } = await req.json();
 
     if (!email || !password || !fullName) {
-      return NextResponse.json(
-        { error: "Thiếu thông tin đăng ký." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Thiếu thông tin đăng ký." }, { status: 400 });
     }
-
     if (password.length < 6) {
-      return NextResponse.json(
-        { error: "Mật khẩu phải có ít nhất 6 ký tự." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Mật khẩu phải có ít nhất 6 ký tự." }, { status: 400 });
     }
 
     const supabase = createAdminClient();
 
-    // Tạo user với email_confirm: false — user chưa thể đăng nhập cho đến khi xác nhận
+    // Bước 1: Tạo user
     const { data: userData, error: createError } = await supabase.auth.admin.createUser({
       email,
       password,
@@ -42,54 +45,60 @@ export async function POST(req: NextRequest) {
     });
 
     if (createError) {
-      // Email đã tồn tại
-      if (createError.message.toLowerCase().includes("already") || createError.message.toLowerCase().includes("exists")) {
-        return NextResponse.json(
-          { error: "Email này đã được đăng ký. Vui lòng đăng nhập." },
-          { status: 409 }
-        );
-      }
+      console.error("[register] createUser error:", createError.message);
+      const isDuplicate = createError.message.toLowerCase().includes("already") ||
+        createError.message.toLowerCase().includes("exists");
       return NextResponse.json(
-        { error: "Có lỗi xảy ra khi tạo tài khoản. Vui lòng thử lại." },
-        { status: 500 }
+        { error: isDuplicate ? "Email này đã được đăng ký. Vui lòng đăng nhập." : `[Supabase] ${createError.message}` },
+        { status: isDuplicate ? 409 : 500 }
       );
     }
 
     const userId = userData.user.id;
 
-    // Sinh token xác nhận (48 bytes = 96 hex chars)
+    // Bước 2: Lưu token xác nhận
     const token = randomBytes(48).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-    // Lưu token vào DB
     const { error: tokenError } = await supabase
       .from("email_verifications")
       .insert({ user_id: userId, token, expires_at: expiresAt });
 
     if (tokenError) {
-      // Rollback: xoá user vừa tạo nếu không lưu được token
+      console.error("[register] insert token error:", tokenError.message);
       await supabase.auth.admin.deleteUser(userId);
       return NextResponse.json(
-        { error: "Có lỗi xảy ra. Vui lòng thử lại." },
+        { error: `[DB] ${tokenError.message}` },
         { status: 500 }
       );
     }
 
-    // Gửi email xác nhận
+    // Bước 3: Gửi email
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const verificationUrl = `${siteUrl}/verify-email?token=${token}`;
 
-    await sendMail({
-      to: email,
-      subject: "Xác nhận email đăng ký TJ Finance",
-      html: renderVerificationEmailHTML({ fullName, verificationUrl }),
-    });
+    try {
+      await sendMail({
+        to: email,
+        subject: "Xác nhận email đăng ký TJ Finance",
+        html: renderVerificationEmailHTML({ fullName, verificationUrl }),
+      });
+    } catch (mailErr) {
+      console.error("[register] sendMail error:", mailErr);
+      // Rollback user và token nếu gửi mail thất bại
+      await supabase.from("email_verifications").delete().eq("user_id", userId);
+      await supabase.auth.admin.deleteUser(userId);
+      return NextResponse.json(
+        { error: `[Mail] Gửi email thất bại: ${(mailErr as Error).message}` },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[register] error:", err);
+    console.error("[register] unexpected error:", err);
     return NextResponse.json(
-      { error: "Có lỗi xảy ra. Vui lòng thử lại." },
+      { error: `[Server] ${(err as Error).message ?? "Lỗi không xác định."}` },
       { status: 500 }
     );
   }
