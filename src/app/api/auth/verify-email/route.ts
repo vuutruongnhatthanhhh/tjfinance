@@ -47,10 +47,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Đánh dấu token đã dùng
+  // Xoá token sau khi đã dùng
   await supabase
     .from("email_verifications")
-    .update({ used_at: new Date().toISOString() })
+    .delete()
     .eq("id", record.id);
 
   return NextResponse.json({ success: true });
