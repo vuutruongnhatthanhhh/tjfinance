@@ -1,0 +1,11 @@
+- Dự án sẽ làm về quản lý tài chính
+- Dự án sẽ dùng NextJS fullstack và Tailwind css
+- Dùng supabase cho database và storage và auth
+- Màu chủ đạo sẽ là #2D9A4B
+- Khi thao tác với sql phải làm file .sql trong thư mục migrations với số thứ tự tăng dần dạng xxxx\_[mô tả tiếng anh]
+- Ngôn ngữ dùng tiếng việt
+- Tên biến, tên hàm, tên trang dùng tiếng anh
+- Nếu có lệnh commit code thì không được đính kèm claude làm Co-Authored-By
+- Khi có lệnh commit hoặc push thì chỉ làm cho lần đó không tự ý làm cho lần sau
+- commit với tiếng anh hoàn toàn
+- khi các file .sql mà cần sửa khi không sửa đè file cũ mà tạo ra một bản mới để fix

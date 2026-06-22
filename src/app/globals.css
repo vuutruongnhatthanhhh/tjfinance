@@ -1,0 +1,270 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-inter: 'Inter', system-ui, sans-serif;
+  --font-playfair: 'Playfair Display', Georgia, serif;
+  --color-primary: #2D9A4B;
+  --color-primary-glow: rgba(45, 154, 75, 0.4);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply antialiased;
+    font-family: var(--font-inter);
+  }
+
+  /* Dark mode - Ma mị forest night */
+  .dark body {
+    background: #050d09;
+    color: #e2ffe8;
+  }
+
+  /* Light mode - Sáng sủa, tươi mát */
+  body {
+    background: #f8fffe;
+    color: #0d1f14;
+  }
+}
+
+@layer components {
+  /* Glass morphism cards */
+  .glass-card {
+    @apply backdrop-blur-md border rounded-2xl;
+    background: rgba(10, 26, 15, 0.6);
+    border-color: rgba(45, 154, 75, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(45, 154, 75, 0.1);
+  }
+
+  .light .glass-card,
+  :not(.dark) .glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(45, 154, 75, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  }
+
+  /* Primary glow button */
+  .btn-primary {
+    @apply relative overflow-hidden px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300;
+    background: linear-gradient(135deg, #2D9A4B, #1a7a35);
+    box-shadow: 0 4px 20px rgba(45, 154, 75, 0.4);
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 6px 30px rgba(45, 154, 75, 0.6);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+
+  .btn-primary::before {
+    content: '';
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300;
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+  }
+
+  .btn-primary:hover::before {
+    @apply opacity-100;
+  }
+
+  /* Input fields */
+  .input-mystic {
+    @apply w-full px-4 py-3 rounded-xl border transition-all duration-300 outline-none text-sm;
+  }
+
+  .dark .input-mystic {
+    background: rgba(10, 26, 15, 0.8);
+    border-color: rgba(45, 154, 75, 0.2);
+    color: #e2ffe8;
+  }
+
+  .dark .input-mystic::placeholder {
+    color: rgba(226, 255, 232, 0.3);
+  }
+
+  .dark .input-mystic:focus {
+    border-color: rgba(45, 154, 75, 0.6);
+    box-shadow: 0 0 0 3px rgba(45, 154, 75, 0.15), 0 0 20px rgba(45, 154, 75, 0.1);
+  }
+
+  .input-mystic {
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(45, 154, 75, 0.2);
+    color: #0d1f14;
+  }
+
+  .input-mystic::placeholder {
+    color: rgba(13, 31, 20, 0.4);
+  }
+
+  .input-mystic:focus {
+    border-color: rgba(45, 154, 75, 0.5);
+    box-shadow: 0 0 0 3px rgba(45, 154, 75, 0.1);
+  }
+
+  /* Sidebar styles */
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 cursor-pointer text-sm font-medium;
+  }
+
+  .dark .sidebar-item {
+    color: rgba(226, 255, 232, 0.6);
+  }
+
+  .dark .sidebar-item:hover {
+    background: rgba(45, 154, 75, 0.1);
+    color: #e2ffe8;
+  }
+
+  .dark .sidebar-item.active {
+    background: rgba(45, 154, 75, 0.2);
+    color: #4ade80;
+    box-shadow: inset 2px 0 0 #2D9A4B;
+  }
+
+  .sidebar-item {
+    color: rgba(13, 31, 20, 0.6);
+  }
+
+  .sidebar-item:hover {
+    background: rgba(45, 154, 75, 0.08);
+    color: #0d1f14;
+  }
+
+  .sidebar-item.active {
+    background: rgba(45, 154, 75, 0.12);
+    color: #2D9A4B;
+    box-shadow: inset 2px 0 0 #2D9A4B;
+  }
+
+  /* Glow text */
+  .text-glow {
+    text-shadow: 0 0 20px rgba(45, 154, 75, 0.5);
+  }
+
+  /* Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(45, 154, 75, 0.3);
+    border-radius: 2px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(45, 154, 75, 0.2);
+    border-radius: 2px;
+  }
+
+  /* Particle dots animation */
+  .particle {
+    @apply absolute rounded-full pointer-events-none;
+    animation: float-particle linear infinite;
+  }
+
+  /* Amount display */
+  .amount-positive {
+    color: #2D9A4B;
+  }
+
+  .amount-negative {
+    @apply text-red-500;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Glow effects */
+  .glow-primary {
+    box-shadow: 0 0 20px rgba(45, 154, 75, 0.4), 0 0 40px rgba(45, 154, 75, 0.2);
+  }
+
+  .glow-primary-sm {
+    box-shadow: 0 0 10px rgba(45, 154, 75, 0.3);
+  }
+
+  /* Background mystic */
+  .bg-mystic-dark {
+    background: radial-gradient(ellipse at top left, #0a1f12 0%, #050d09 50%, #030a06 100%);
+  }
+
+  .bg-mystic-light {
+    background: radial-gradient(ellipse at top left, #f0fdf4 0%, #ffffff 60%, #f8fff9 100%);
+  }
+}
+
+/* Floating particles background */
+.particles-container {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.particle-dot {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(45, 154, 75, 0.6);
+  animation: floatUp linear infinite;
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(100vh) scale(0);
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-20px) scale(1);
+  }
+}
+
+@keyframes float-particle {
+  0% { transform: translateY(0) translateX(0); opacity: 0; }
+  50% { opacity: 0.8; }
+  100% { transform: translateY(-100px) translateX(20px); opacity: 0; }
+}
+
+/* Page transitions */
+.page-enter {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal overlay */
+.modal-overlay {
+  background: rgba(5, 13, 9, 0.8);
+  backdrop-filter: blur(8px);
+}
+
+.dark .modal-overlay {
+  background: rgba(5, 13, 9, 0.85);
+}
