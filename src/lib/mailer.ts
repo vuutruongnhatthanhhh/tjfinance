@@ -25,7 +25,7 @@ export async function sendMail({ to, subject, html }: SendMailOptions) {
   const transporter = createTransporter();
 
   await transporter.sendMail({
-    from: `"TJ Finance" <${GMAIL_USER}>`,
+    from: `"TJFinance" <${GMAIL_USER}>`,
     to,
     subject,
     html,

@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Leaf, CheckCircle, XCircle, Loader } from "lucide-react";
+import { Banknote, CheckCircle, XCircle, Loader } from "lucide-react";
 
 type Status = "loading" | "success" | "error";
 
@@ -44,7 +44,7 @@ function VerifyEmailContent() {
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 glow-primary"
           style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
-          <Leaf className="w-8 h-8 text-white" />
+          <Banknote className="w-8 h-8 text-white" />
         </div>
         <h1 className="text-3xl font-bold text-white">
           TJ<span style={{ color: "#4ade80" }}>Finance</span>

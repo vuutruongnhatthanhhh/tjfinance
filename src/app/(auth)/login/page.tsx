@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Leaf, LogIn } from "lucide-react";
+import { Eye, EyeOff, Banknote, LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -41,7 +41,7 @@ export default function LoginPage() {
       <div className="text-center mb-10">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 glow-primary"
           style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
-          <Leaf className="w-8 h-8 text-white" />
+          <Banknote className="w-8 h-8 text-white" />
         </div>
         <h1 className="text-3xl font-bold text-white font-display mb-1">
           TJ<span className="text-glow" style={{ color: "#4ade80" }}>Finance</span>

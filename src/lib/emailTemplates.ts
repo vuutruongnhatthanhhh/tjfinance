@@ -50,7 +50,7 @@ export function renderVerificationEmailHTML({
       </h2>
 
       <p style="font-size:14px; color:#111827; margin:0 0 8px 0;">
-        Chào <strong>${fullName}</strong>, vui lòng nhấp vào nút bên dưới để xác nhận và kích hoạt tài khoản TJ Finance của bạn.
+        Chào <strong>${fullName}</strong>, vui lòng nhấp vào nút bên dưới để xác nhận và kích hoạt tài khoản TJFinance của bạn.
       </p>
 
       <p style="font-size:14px; color:#111827; margin:0 0 16px 0;">
@@ -78,7 +78,7 @@ export function renderVerificationEmailHTML({
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
 
       <div style="font-size:12px; color:#9ca3af; text-align:center;">
-        <p style="margin:0;">© ${year} TJ Finance · Quản lý tài chính cá nhân</p>
+        <p style="margin:0;">© ${year} TJFinance · Quản lý tài chính cá nhân</p>
       </div>
 
     </div>

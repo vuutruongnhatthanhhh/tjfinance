@@ -7,12 +7,11 @@ import {
   CreditCard,
   Tag,
   LogOut,
-  Leaf,
+  Banknote,
   X,
   ChevronRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import ThemeToggle from "@/components/ui/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -53,7 +52,7 @@ export default function Sidebar({ isOpen, onClose, userEmail, userName }: Sideba
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)", boxShadow: "0 0 15px rgba(45,154,75,0.4)" }}>
-            <Leaf className="w-5 h-5 text-white" />
+            <Banknote className="w-5 h-5 text-white" />
           </div>
           <div>
             <span className="font-bold text-lg leading-none dark:text-white text-gray-900">TJ</span>
@@ -96,12 +95,6 @@ export default function Sidebar({ isOpen, onClose, userEmail, userName }: Sideba
       {/* Bottom section */}
       <div className="px-3 py-4 border-t space-y-3"
         style={{ borderColor: "rgba(45,154,75,0.15)" }}>
-        {/* Theme toggle */}
-        <div className="flex items-center justify-between px-4 py-2">
-          <span className="text-sm" style={{ color: "rgba(226,255,232,0.5)" }}>Giao diện</span>
-          <ThemeToggle />
-        </div>
-
         {/* User info */}
         <div className="px-4 py-3 rounded-xl"
           style={{ background: "rgba(45,154,75,0.06)", border: "1px solid rgba(45,154,75,0.1)" }}>

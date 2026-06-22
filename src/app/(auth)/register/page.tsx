@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Leaf, UserPlus, Mail } from "lucide-react";
+import { Eye, EyeOff, Banknote, UserPlus, Mail } from "lucide-react";
 
 type Step = "form" | "sent";
 
@@ -71,7 +71,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 glow-primary"
             style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
-            <Leaf className="w-8 h-8 text-white" />
+            <Banknote className="w-8 h-8 text-white" />
           </div>
           <h1 className="text-3xl font-bold text-white">
             TJ<span style={{ color: "#4ade80" }}>Finance</span>
@@ -115,7 +115,7 @@ export default function RegisterPage() {
       <div className="text-center mb-8">
         <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 glow-primary"
           style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
-          <Leaf className="w-8 h-8 text-white" />
+          <Banknote className="w-8 h-8 text-white" />
         </div>
         <h1 className="text-3xl font-bold text-white mb-1">
           TJ<span style={{ color: "#4ade80" }}>Finance</span>
