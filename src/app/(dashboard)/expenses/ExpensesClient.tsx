@@ -3,11 +3,25 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  Plus, Search, Trash2, Calendar, Filter,
-  TrendingDown, X, ChevronDown,
+  Plus,
+  Search,
+  Trash2,
+  Calendar,
+  Filter,
+  TrendingDown,
+  X,
+  ChevronDown,
+  Pencil,
 } from "lucide-react";
-import { formatCurrency, formatDate, formatNumberInput, parseFormattedNumber, cn } from "@/lib/utils";
+import {
+  formatCurrency,
+  formatDate,
+  formatNumberInput,
+  parseFormattedNumber,
+  cn,
+} from "@/lib/utils";
 import DateInput from "@/components/ui/DateInput";
+import ModalOverlay from "@/components/ui/ModalOverlay";
 import { createClient } from "@/lib/supabase/client";
 import { Expense, Category } from "@/types";
 import Header from "@/components/layout/Header";
@@ -20,10 +34,19 @@ interface ExpensesClientProps {
 }
 
 const ICON_MAP: Record<string, string> = {
-  utensils: "🍽️", car: "🚗", "shopping-bag": "🛍️", "gamepad-2": "🎮",
-  "heart-pulse": "❤️‍🔥", "book-open": "📚", receipt: "🧾",
-  "more-horizontal": "⋯", briefcase: "💼", "trending-up": "📈",
-  gift: "🎁", "plus-circle": "➕", circle: "⚪",
+  utensils: "🍽️",
+  car: "🚗",
+  "shopping-bag": "🛍️",
+  "gamepad-2": "🎮",
+  "heart-pulse": "❤️‍🔥",
+  "book-open": "📚",
+  receipt: "🧾",
+  "more-horizontal": "⋯",
+  briefcase: "💼",
+  "trending-up": "📈",
+  gift: "🎁",
+  "plus-circle": "➕",
+  circle: "⚪",
 };
 
 function CategoryIcon({ icon, color }: { icon: string; color: string }) {
@@ -40,23 +63,27 @@ function CategoryIcon({ icon, color }: { icon: string; color: string }) {
 function AddExpenseModal({
   categories,
   userId,
+  expense,
   onClose,
   onSuccess,
 }: {
   categories: Category[];
   userId: string;
+  expense?: Expense;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState(categories[0]?.id || "");
-  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
-  const [note, setNote] = useState("");
+  const isEdit = !!expense;
+  const expenseCategories = categories.filter((category) => category.type === "expense");
+  const [amount, setAmount] = useState(expense ? formatNumberInput(String(expense.amount)) : "");
+  const [description, setDescription] = useState(expense?.description || "");
+  const [categoryId, setCategoryId] = useState(
+    expense?.category_id || expenseCategories[0]?.id || ""
+  );
+  const [date, setDate] = useState(expense?.date || new Date().toISOString().split("T")[0]);
+  const [note, setNote] = useState(expense?.note || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const expenseCategories = categories.filter((c) => c.type === "expense");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,14 +98,18 @@ function AddExpenseModal({
     setLoading(true);
     const supabase = createClient();
 
-    const { error: dbError } = await supabase.from("expenses").insert({
+    const payload = {
       user_id: userId,
       category_id: categoryId || null,
       amount: amountNum,
       description,
       note: note || null,
       date,
-    });
+    };
+
+    const { error: dbError } = isEdit
+      ? await supabase.from("expenses").update(payload).eq("id", expense.id)
+      : await supabase.from("expenses").insert(payload);
 
     if (dbError) {
       setError("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -102,180 +133,190 @@ function AddExpenseModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ background: "rgba(5,13,9,0.85)", backdropFilter: "blur(8px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <ModalOverlay
+      onClose={onClose}
+      panelClassName="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl"
+      panelStyle={{
+        background: "rgba(8,20,12,0.97)",
+        border: "1px solid rgba(45,154,75,0.2)",
+        boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+      }}
     >
+      <div className="flex justify-center pt-3 pb-1 sm:hidden">
+        <div className="w-10 h-1 rounded-full" style={{ background: "rgba(45,154,75,0.3)" }} />
+      </div>
+
       <div
-        className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl"
-        style={{
-          background: "rgba(8,20,12,0.97)",
-          border: "1px solid rgba(45,154,75,0.2)",
-          boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
-        }}
+        className="flex items-center justify-between px-6 py-4 border-b"
+        style={{ borderColor: "rgba(45,154,75,0.12)" }}
       >
-        {/* Handle bar for mobile */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(45,154,75,0.3)" }} />
+        <div>
+          <h2 className="text-lg font-bold text-white">
+            {isEdit ? "Chỉnh sửa chi tiêu" : "Thêm chi tiêu"}
+          </h2>
+          <p className="text-xs mt-0.5" style={{ color: "rgba(226,255,232,0.4)" }}>
+            {isEdit ? "Cập nhật khoản chi tiêu" : "Ghi lại khoản chi tiêu mới"}
+          </p>
         </div>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+          style={{ color: "rgba(226,255,232,0.5)", background: "rgba(255,255,255,0.05)" }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: "rgba(45,154,75,0.12)" }}>
-          <div>
-            <h2 className="text-lg font-bold text-white">Thêm chi tiêu</h2>
-            <p className="text-xs mt-0.5" style={{ color: "rgba(226,255,232,0.4)" }}>
-              Ghi lại khoản chi tiêu mới
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
-            style={{ color: "rgba(226,255,232,0.5)", background: "rgba(255,255,255,0.05)" }}
+      <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        {error && (
+          <div
+            className="px-4 py-3 rounded-xl text-sm"
+            style={{
+              background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              color: "#fca5a5",
+            }}
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="px-4 py-3 rounded-xl text-sm"
-              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>
-              {error}
-            </div>
-          )}
-
-          {/* Amount */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>
-              Số tiền
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => setAmount(formatNumberInput(e.target.value))}
-                placeholder="0"
-                required
-                style={{ ...inputStyle, paddingRight: "50px", fontSize: "20px", fontWeight: "bold" }}
-              />
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium"
-                style={{ color: "rgba(226,255,232,0.4)" }}>
-                VNĐ
-              </span>
-            </div>
+            {error}
           </div>
+        )}
 
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>
-              Mô tả
-            </label>
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Số tiền
+          </label>
+          <div className="relative">
             <input
               type="text"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Ăn trưa, đi taxi, mua sắm..."
+              inputMode="numeric"
+              value={amount}
+              onChange={(e) => setAmount(formatNumberInput(e.target.value))}
+              placeholder="0"
               required
-              style={inputStyle}
+              style={{ ...inputStyle, paddingRight: "50px", fontSize: "20px", fontWeight: "bold" }}
             />
+            <span
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium"
+              style={{ color: "rgba(226,255,232,0.4)" }}
+            >
+              VNĐ
+            </span>
           </div>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            {/* Category */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-                style={{ color: "rgba(226,255,232,0.5)" }}>
-                Danh mục
-              </label>
-              <div className="relative">
-                <select
-                  value={categoryId}
-                  onChange={(e) => setCategoryId(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    paddingRight: "36px",
-                    appearance: "none",
-                    cursor: "pointer",
-                  }}
-                >
-                  {expenseCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id} style={{ background: "#0a1a0f" }}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-                  style={{ color: "rgba(226,255,232,0.4)" }} />
-              </div>
-            </div>
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Mô tả
+          </label>
+          <input
+            type="text"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Ăn trưa, đi taxi, mua sắm..."
+            required
+            style={inputStyle}
+          />
+        </div>
 
-            {/* Date */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-                style={{ color: "rgba(226,255,232,0.5)" }}>
-                Ngày
-              </label>
-              <DateInput
-                value={date}
-                onChange={setDate}
-                required
-                style={inputStyle}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "rgba(226,255,232,0.5)" }}
+            >
+              Danh mục
+            </label>
+            <div className="relative">
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                style={{
+                  ...inputStyle,
+                  paddingRight: "36px",
+                  appearance: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {expenseCategories.map((category) => (
+                  <option
+                    key={category.id}
+                    value={category.id}
+                    style={{ background: "#0a1a0f" }}
+                  >
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                style={{ color: "rgba(226,255,232,0.4)" }}
               />
             </div>
           </div>
 
-          {/* Note */}
           <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>
-              Ghi chú <span style={{ color: "rgba(226,255,232,0.3)" }}>(tuỳ chọn)</span>
+            <label
+              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              style={{ color: "rgba(226,255,232,0.5)" }}
+            >
+              Ngày
             </label>
-            <textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Thêm ghi chú..."
-              rows={2}
-              style={{ ...inputStyle, resize: "none" }}
-            />
+            <DateInput value={date} onChange={setDate} required style={inputStyle} />
           </div>
+        </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                color: "rgba(226,255,232,0.6)",
-              }}
-            >
-              Huỷ
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-[2] btn-primary flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Plus className="w-4 h-4" />
-                  Lưu chi tiêu
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Ghi chú <span style={{ color: "rgba(226,255,232,0.3)" }}>(tùy chọn)</span>
+          </label>
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Thêm ghi chú..."
+            rows={2}
+            style={{ ...inputStyle, resize: "none" }}
+          />
+        </div>
+
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(226,255,232,0.6)",
+            }}
+          >
+            Hủy
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-[2] btn-primary flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                {isEdit ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                {isEdit ? "Lưu thay đổi" : "Lưu chi tiêu"}
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </ModalOverlay>
   );
 }
 
@@ -287,10 +328,11 @@ export default function ExpensesClient({
   const router = useRouter();
   const onMenuToggle = useSidebarToggle();
   const [showModal, setShowModal] = useState(false);
+  const [editExpense, setEditExpense] = useState<Expense | undefined>();
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const handleDelete = async (id: string) => {
     setDeleteId(id);
@@ -300,13 +342,13 @@ export default function ExpensesClient({
     setDeleteId(null);
   };
 
-  const filtered = initialExpenses.filter((e) => {
-    const matchSearch = e.description.toLowerCase().includes(search.toLowerCase());
-    const matchCat = filterCategory === "all" || e.category_id === filterCategory;
+  const filtered = initialExpenses.filter((expense) => {
+    const matchSearch = expense.description.toLowerCase().includes(search.toLowerCase());
+    const matchCat = filterCategory === "all" || expense.category_id === filterCategory;
     return matchSearch && matchCat;
   });
 
-  const totalFiltered = filtered.reduce((s, e) => s + Number(e.amount), 0);
+  const totalFiltered = filtered.reduce((sum, expense) => sum + Number(expense.amount), 0);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -317,7 +359,6 @@ export default function ExpensesClient({
       />
 
       <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4">
-        {/* Summary bar */}
         <div
           className="rounded-2xl p-4 mb-4 flex items-center justify-between gap-4 border"
           style={{
@@ -326,13 +367,18 @@ export default function ExpensesClient({
           }}
         >
           <div>
-            <p className="text-xs" style={{ color: "rgba(226,255,232,0.5)" }}>Tổng chi tiêu hiển thị</p>
+            <p className="text-xs" style={{ color: "rgba(226,255,232,0.5)" }}>
+              Tổng chi tiêu hiển thị
+            </p>
             <p className="text-xl font-bold mt-0.5" style={{ color: "#ef4444" }}>
               -{formatCurrency(totalFiltered)}
             </p>
           </div>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => {
+              setEditExpense(undefined);
+              setShowModal(true);
+            }}
             className="btn-primary flex items-center gap-2 text-sm flex-shrink-0"
           >
             <Plus className="w-4 h-4" />
@@ -341,11 +387,12 @@ export default function ExpensesClient({
           </button>
         </div>
 
-        {/* Filters */}
         <div className="flex gap-3 mb-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-              style={{ color: "rgba(226,255,232,0.3)" }} />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: "rgba(226,255,232,0.3)" }}
+            />
             <input
               type="text"
               value={search}
@@ -364,8 +411,10 @@ export default function ExpensesClient({
             />
           </div>
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-              style={{ color: "rgba(226,255,232,0.3)" }} />
+            <Filter
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: "rgba(226,255,232,0.3)" }}
+            />
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
@@ -383,19 +432,24 @@ export default function ExpensesClient({
             >
               <option value="all">Tất cả</option>
               {categories
-                .filter((c) => c.type === "expense")
-                .map((cat) => (
-                  <option key={cat.id} value={cat.id} style={{ background: "#0a1a0f" }}>
-                    {cat.name}
+                .filter((category) => category.type === "expense")
+                .map((category) => (
+                  <option
+                    key={category.id}
+                    value={category.id}
+                    style={{ background: "#0a1a0f" }}
+                  >
+                    {category.name}
                   </option>
                 ))}
             </select>
-            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
-              style={{ color: "rgba(226,255,232,0.4)" }} />
+            <ChevronDown
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none"
+              style={{ color: "rgba(226,255,232,0.4)" }}
+            />
           </div>
         </div>
 
-        {/* Expense list */}
         {filtered.length > 0 ? (
           <div className="space-y-2">
             {filtered.map((expense) => (
@@ -429,15 +483,16 @@ export default function ExpensesClient({
                         {expense.category.name}
                       </span>
                     )}
-                    <span className="text-xs flex items-center gap-1"
-                      style={{ color: "rgba(226,255,232,0.3)" }}>
+                    <span
+                      className="text-xs flex items-center gap-1"
+                      style={{ color: "rgba(226,255,232,0.3)" }}
+                    >
                       <Calendar className="w-3 h-3" />
                       {formatDate(expense.date)}
                     </span>
                   </div>
                   {expense.note && (
-                    <p className="text-xs mt-1 italic truncate"
-                      style={{ color: "rgba(226,255,232,0.3)" }}>
+                    <p className="text-xs mt-1 italic truncate" style={{ color: "rgba(226,255,232,0.3)" }}>
                       {expense.note}
                     </p>
                   )}
@@ -448,13 +503,26 @@ export default function ExpensesClient({
                     -{formatCurrency(expense.amount)}
                   </span>
                   <button
+                    onClick={() => {
+                      setEditExpense(expense);
+                      setShowModal(true);
+                    }}
+                    className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all",
+                      "hover:bg-blue-500/20 text-blue-400"
+                    )}
+                    aria-label="Chỉnh sửa"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => handleDelete(expense.id)}
                     disabled={deleteId === expense.id}
                     className={cn(
                       "w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all",
                       "hover:bg-red-500/20 text-red-400"
                     )}
-                    aria-label="Xoá"
+                    aria-label="Xóa"
                   >
                     {deleteId === expense.id ? (
                       <div className="w-3 h-3 border border-red-400/50 border-t-red-400 rounded-full animate-spin" />
@@ -468,8 +536,10 @@ export default function ExpensesClient({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: "rgba(45,154,75,0.1)", border: "1px solid rgba(45,154,75,0.15)" }}>
+            <div
+              className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+              style={{ background: "rgba(45,154,75,0.1)", border: "1px solid rgba(45,154,75,0.15)" }}
+            >
               <TrendingDown className="w-8 h-8" style={{ color: "#2D9A4B" }} />
             </div>
             <p className="text-base font-medium dark:text-white text-gray-900">
@@ -477,12 +547,15 @@ export default function ExpensesClient({
             </p>
             <p className="text-sm mt-2" style={{ color: "rgba(226,255,232,0.4)" }}>
               {search || filterCategory !== "all"
-                ? "Thử thay đổi từ khoá tìm kiếm"
+                ? "Thử thay đổi từ khóa tìm kiếm"
                 : "Bắt đầu ghi lại chi tiêu của bạn"}
             </p>
             {!search && filterCategory === "all" && (
               <button
-                onClick={() => setShowModal(true)}
+                onClick={() => {
+                  setEditExpense(undefined);
+                  setShowModal(true);
+                }}
                 className="btn-primary mt-4 flex items-center gap-2"
               >
                 <Plus className="w-4 h-4" />
@@ -493,9 +566,11 @@ export default function ExpensesClient({
         )}
       </div>
 
-      {/* FAB for mobile */}
       <button
-        onClick={() => setShowModal(true)}
+        onClick={() => {
+          setEditExpense(undefined);
+          setShowModal(true);
+        }}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl lg:hidden flex items-center justify-center shadow-2xl z-20"
         style={{
           background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
@@ -510,6 +585,7 @@ export default function ExpensesClient({
         <AddExpenseModal
           categories={categories}
           userId={userId}
+          expense={editExpense}
           onClose={() => setShowModal(false)}
           onSuccess={() => startTransition(() => router.refresh())}
         />

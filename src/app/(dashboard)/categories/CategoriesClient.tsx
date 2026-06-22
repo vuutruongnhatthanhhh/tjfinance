@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Tag, X, ChevronDown, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import ModalOverlay from "@/components/ui/ModalOverlay";
 import { Category } from "@/types";
 import Header from "@/components/layout/Header";
 import { useSidebarToggle } from "../DashboardLayoutClient";
@@ -166,19 +167,15 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      style={{ background: "rgba(5,13,9,0.85)", backdropFilter: "blur(8px)" }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+    <ModalOverlay
+      onClose={onClose}
+      panelClassName="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl"
+      panelStyle={{
+        background: "rgba(8,20,12,0.97)",
+        border: "1px solid rgba(45,154,75,0.2)",
+        boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+      }}
     >
-      <div
-        className="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl"
-        style={{
-          background: "rgba(8,20,12,0.97)",
-          border: "1px solid rgba(45,154,75,0.2)",
-          boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
-        }}
-      >
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full" style={{ background: "rgba(45,154,75,0.3)" }} />
@@ -322,8 +319,7 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalOverlay>
   );
 }
 
