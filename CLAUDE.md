@@ -1,4 +1,4 @@
-- Dự án sẽ làm về quản lý tài chính
+- Dự án sẽ làm về quản lý tài chính thương hiệu TJFinance
 - Dự án sẽ dùng NextJS fullstack và Tailwind css
 - Dùng supabase cho database và storage và auth
 - Màu chủ đạo sẽ là #2D9A4B
