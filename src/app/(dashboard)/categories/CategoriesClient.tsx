@@ -16,23 +16,97 @@ interface CategoriesClientProps {
 }
 
 const PRESET_COLORS = [
-  "#2D9A4B", "#ef4444", "#f97316", "#eab308", "#22c55e",
-  "#06b6d4", "#3b82f6", "#8b5cf6", "#ec4899", "#64748b",
+  // Greens
+  "#2D9A4B", "#22c55e", "#16a34a", "#4ade80", "#86efac",
+  // Reds & Pinks
+  "#ef4444", "#dc2626", "#f43f5e", "#ec4899", "#db2777",
+  // Oranges & Yellows
+  "#f97316", "#ea580c", "#fb923c", "#eab308", "#ca8a04",
+  // Blues
+  "#3b82f6", "#2563eb", "#06b6d4", "#0891b2", "#60a5fa",
+  // Purples & Violets
+  "#8b5cf6", "#7c3aed", "#a855f7", "#6366f1", "#818cf8",
+  // Teals & Cyans
+  "#14b8a6", "#0d9488", "#22d3ee", "#67e8f9", "#2dd4bf",
+  // Neutrals & Browns
+  "#64748b", "#475569", "#a78bfa", "#f59e0b", "#d97706",
 ];
 
 const ICONS = [
+  // Ăn uống
   { id: "utensils", emoji: "🍽️", label: "Ăn uống" },
-  { id: "car", emoji: "🚗", label: "Di chuyển" },
+  { id: "pizza", emoji: "🍕", label: "Pizza" },
+  { id: "burger", emoji: "🍔", label: "Burger" },
+  { id: "coffee", emoji: "☕", label: "Cà phê" },
+  { id: "boba", emoji: "🧋", label: "Trà sữa" },
+  { id: "noodle", emoji: "🍜", label: "Mì" },
+  { id: "sushi", emoji: "🍱", label: "Cơm hộp" },
+  { id: "cake", emoji: "🍰", label: "Bánh" },
+  { id: "salad", emoji: "🥗", label: "Salad" },
+  { id: "beer", emoji: "🍺", label: "Đồ uống" },
+  // Di chuyển
+  { id: "car", emoji: "🚗", label: "Xe hơi" },
+  { id: "motorbike", emoji: "🛵", label: "Xe máy" },
+  { id: "bus", emoji: "🚌", label: "Xe buýt" },
+  { id: "taxi", emoji: "🚕", label: "Taxi" },
+  { id: "plane", emoji: "✈️", label: "Máy bay" },
+  { id: "train", emoji: "🚂", label: "Tàu hỏa" },
+  { id: "ship", emoji: "🚢", label: "Tàu biển" },
+  { id: "fuel", emoji: "⛽", label: "Xăng dầu" },
+  // Mua sắm
   { id: "shopping-bag", emoji: "🛍️", label: "Mua sắm" },
-  { id: "gamepad-2", emoji: "🎮", label: "Giải trí" },
+  { id: "cart", emoji: "🛒", label: "Siêu thị" },
+  { id: "clothes", emoji: "👗", label: "Quần áo" },
+  { id: "shoes", emoji: "👟", label: "Giày dép" },
+  { id: "cosmetic", emoji: "💄", label: "Mỹ phẩm" },
+  { id: "ring", emoji: "💍", label: "Trang sức" },
+  // Sức khỏe
   { id: "heart-pulse", emoji: "❤️‍🔥", label: "Sức khỏe" },
-  { id: "book-open", emoji: "📚", label: "Giáo dục" },
+  { id: "pill", emoji: "💊", label: "Thuốc" },
+  { id: "hospital", emoji: "🏥", label: "Bệnh viện" },
+  { id: "gym", emoji: "🏋️", label: "Gym" },
+  { id: "yoga", emoji: "🧘", label: "Yoga" },
+  { id: "dental", emoji: "🦷", label: "Nha khoa" },
+  // Giáo dục
+  { id: "book-open", emoji: "📚", label: "Sách" },
+  { id: "graduation", emoji: "🎓", label: "Học phí" },
+  { id: "pencil", emoji: "✏️", label: "Văn phòng phẩm" },
+  { id: "laptop", emoji: "💻", label: "Laptop" },
+  { id: "phone", emoji: "📱", label: "Điện thoại" },
+  // Giải trí
+  { id: "gamepad-2", emoji: "🎮", label: "Game" },
+  { id: "movie", emoji: "🎬", label: "Phim ảnh" },
+  { id: "music", emoji: "🎵", label: "Âm nhạc" },
+  { id: "sport", emoji: "⚽", label: "Thể thao" },
+  { id: "travel", emoji: "🏖️", label: "Du lịch" },
+  { id: "camping", emoji: "🏕️", label: "Cắm trại" },
+  { id: "reading", emoji: "📖", label: "Đọc sách" },
+  // Nhà cửa
+  { id: "home", emoji: "🏠", label: "Nhà ở" },
+  { id: "furniture", emoji: "🛋️", label: "Nội thất" },
+  { id: "repair", emoji: "🔧", label: "Sửa chữa" },
+  { id: "electric", emoji: "💡", label: "Điện" },
+  { id: "water", emoji: "💧", label: "Nước" },
+  { id: "cleaning", emoji: "🧹", label: "Vệ sinh" },
+  // Tài chính
   { id: "receipt", emoji: "🧾", label: "Hóa đơn" },
-  { id: "briefcase", emoji: "💼", label: "Công việc" },
   { id: "trending-up", emoji: "📈", label: "Đầu tư" },
+  { id: "money", emoji: "💰", label: "Tiền mặt" },
+  { id: "card", emoji: "💳", label: "Thẻ" },
+  { id: "bank", emoji: "🏦", label: "Ngân hàng" },
+  { id: "tax", emoji: "📋", label: "Thuế" },
+  // Công việc & Xã hội
+  { id: "briefcase", emoji: "💼", label: "Công việc" },
   { id: "gift", emoji: "🎁", label: "Quà tặng" },
+  { id: "birthday", emoji: "🎂", label: "Sinh nhật" },
+  { id: "family", emoji: "👨‍👩‍👧", label: "Gia đình" },
+  { id: "pet", emoji: "🐾", label: "Thú cưng" },
+  { id: "charity", emoji: "❤️", label: "Từ thiện" },
+  // Khác
+  { id: "star", emoji: "⭐", label: "Yêu thích" },
+  { id: "key", emoji: "🔑", label: "Chìa khóa" },
+  { id: "map", emoji: "🗺️", label: "Bản đồ" },
   { id: "more-horizontal", emoji: "⋯", label: "Khác" },
-  { id: "plus-circle", emoji: "➕", label: "Thêm" },
 ];
 
 const ICON_MAP: Record<string, string> = Object.fromEntries(
@@ -50,7 +124,7 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
   const [name, setName] = useState(category?.name || "");
   const [icon, setIcon] = useState(category?.icon || "more-horizontal");
   const [color, setColor] = useState(category?.color || "#2D9A4B");
-  const [type, setType] = useState<"expense" | "income">(category?.type || "expense");
+  const [type, setType] = useState<"expense" | "income" | "investment">(category?.type || "expense");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -134,24 +208,29 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
               style={{ color: "rgba(226,255,232,0.5)" }}>Loại</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["expense", "income"] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setType(t)}
-                  className="py-2.5 rounded-xl text-sm font-medium transition-all"
-                  style={{
-                    background: type === t
-                      ? t === "expense" ? "rgba(239,68,68,0.2)" : "rgba(45,154,75,0.2)"
-                      : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${type === t ? (t === "expense" ? "rgba(239,68,68,0.4)" : "rgba(45,154,75,0.4)") : "rgba(255,255,255,0.08)"}`,
-                    color: type === t ? (t === "expense" ? "#fca5a5" : "#4ade80") : "rgba(226,255,232,0.4)",
-                  }}
-                >
-                  {t === "expense" ? "Chi tiêu" : "Thu nhập"}
-                </button>
-              ))}
+            <div className="grid grid-cols-3 gap-2">
+              {(["expense", "income", "investment"] as const).map((t) => {
+                const cfg = {
+                  expense:    { label: "Chi tiêu",  bg: "rgba(239,68,68,0.2)",   border: "rgba(239,68,68,0.4)",   text: "#fca5a5" },
+                  income:     { label: "Thu nhập",  bg: "rgba(45,154,75,0.2)",   border: "rgba(45,154,75,0.4)",   text: "#4ade80" },
+                  investment: { label: "Đầu tư",    bg: "rgba(59,130,246,0.2)",  border: "rgba(59,130,246,0.4)",  text: "#93c5fd" },
+                }[t];
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setType(t)}
+                    className="py-2.5 rounded-xl text-sm font-medium transition-all"
+                    style={{
+                      background: type === t ? cfg.bg : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${type === t ? cfg.border : "rgba(255,255,255,0.08)"}`,
+                      color: type === t ? cfg.text : "rgba(226,255,232,0.4)",
+                    }}
+                  >
+                    {cfg.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -173,17 +252,17 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
               style={{ color: "rgba(226,255,232,0.5)" }}>Màu sắc</label>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(28px,1fr))] gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
                   onClick={() => setColor(c)}
-                  className="w-8 h-8 rounded-xl transition-all"
+                  className="w-7 h-7 rounded-lg transition-all"
                   style={{
                     background: c,
-                    boxShadow: color === c ? `0 0 0 3px rgba(255,255,255,0.2), 0 0 10px ${c}80` : "none",
-                    transform: color === c ? "scale(1.15)" : "scale(1)",
+                    boxShadow: color === c ? `0 0 0 2px rgba(255,255,255,0.25), 0 0 8px ${c}80` : "none",
+                    transform: color === c ? "scale(1.2)" : "scale(1)",
                   }}
                 />
               ))}
@@ -194,13 +273,13 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
               style={{ color: "rgba(226,255,232,0.5)" }}>Biểu tượng</label>
-            <div className="grid grid-cols-6 gap-2">
+            <div className="grid grid-cols-8 gap-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
               {ICONS.map((ic) => (
                 <button
                   key={ic.id}
                   type="button"
                   onClick={() => setIcon(ic.id)}
-                  className="h-10 rounded-xl flex items-center justify-center text-lg transition-all"
+                  className="h-9 rounded-lg flex items-center justify-center text-base transition-all"
                   style={{
                     background: icon === ic.id ? `${color}20` : "rgba(255,255,255,0.04)",
                     border: `1px solid ${icon === ic.id ? `${color}50` : "rgba(255,255,255,0.06)"}`,
@@ -224,7 +303,7 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
             <div>
               <p className="text-sm font-medium text-white">{name || "Tên danh mục"}</p>
               <p className="text-xs" style={{ color: "rgba(226,255,232,0.4)" }}>
-                {type === "expense" ? "Chi tiêu" : "Thu nhập"}
+                {type === "expense" ? "Chi tiêu" : type === "income" ? "Thu nhập" : "Đầu tư"}
               </p>
             </div>
           </div>
@@ -257,7 +336,7 @@ export default function CategoriesClient({
   const onMenuToggle = useSidebarToggle();
   const [showModal, setShowModal] = useState(false);
   const [editCategory, setEditCategory] = useState<Category | undefined>();
-  const [activeTab, setActiveTab] = useState<"expense" | "income">("expense");
+  const [activeTab, setActiveTab] = useState<"expense" | "income" | "investment">("expense");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -287,29 +366,30 @@ export default function CategoriesClient({
         {/* Tabs */}
         <div className="flex gap-2 mb-5 p-1 rounded-xl"
           style={{ background: "rgba(10,20,13,0.7)", border: "1px solid rgba(45,154,75,0.1)" }}>
-          {(["expense", "income"] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
-              style={{
-                background: activeTab === tab
-                  ? tab === "expense" ? "rgba(239,68,68,0.15)" : "rgba(45,154,75,0.15)"
-                  : "transparent",
-                color: activeTab === tab
-                  ? tab === "expense" ? "#fca5a5" : "#4ade80"
-                  : "rgba(226,255,232,0.4)",
-                border: activeTab === tab
-                  ? `1px solid ${tab === "expense" ? "rgba(239,68,68,0.3)" : "rgba(45,154,75,0.3)"}`
-                  : "1px solid transparent",
-              }}
-            >
-              {tab === "expense" ? "Chi tiêu" : "Thu nhập"}
-              <span className="ml-2 text-xs opacity-70">
-                ({initialCategories.filter(c => c.type === tab).length})
-              </span>
-            </button>
-          ))}
+          {(["expense", "income", "investment"] as const).map((tab) => {
+            const cfg = {
+              expense:    { label: "Chi tiêu", bg: "rgba(239,68,68,0.15)",  border: "rgba(239,68,68,0.3)",  text: "#fca5a5" },
+              income:     { label: "Thu nhập", bg: "rgba(45,154,75,0.15)",  border: "rgba(45,154,75,0.3)",  text: "#4ade80" },
+              investment: { label: "Đầu tư",   bg: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.3)", text: "#93c5fd" },
+            }[tab];
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                style={{
+                  background: activeTab === tab ? cfg.bg : "transparent",
+                  color: activeTab === tab ? cfg.text : "rgba(226,255,232,0.4)",
+                  border: activeTab === tab ? `1px solid ${cfg.border}` : "1px solid transparent",
+                }}
+              >
+                {cfg.label}
+                <span className="ml-1.5 text-xs opacity-70">
+                  ({initialCategories.filter(c => c.type === tab).length})
+                </span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Add button */}
@@ -322,7 +402,7 @@ export default function CategoriesClient({
           }}
         >
           <Plus className="w-4 h-4" />
-          Thêm danh mục {activeTab === "expense" ? "chi tiêu" : "thu nhập"}
+          Thêm danh mục {activeTab === "expense" ? "chi tiêu" : activeTab === "income" ? "thu nhập" : "đầu tư"}
         </button>
 
         {/* Category grid */}
@@ -391,7 +471,7 @@ export default function CategoriesClient({
               <Tag className="w-7 h-7" style={{ color: "#2D9A4B" }} />
             </div>
             <p className="text-sm font-medium dark:text-white text-gray-900">
-              Chưa có danh mục {activeTab === "expense" ? "chi tiêu" : "thu nhập"}
+              Chưa có danh mục {activeTab === "expense" ? "chi tiêu" : activeTab === "income" ? "thu nhập" : "đầu tư"}
             </p>
             <p className="text-xs mt-2" style={{ color: "rgba(226,255,232,0.4)" }}>
               Tạo danh mục để phân loại giao dịch của bạn

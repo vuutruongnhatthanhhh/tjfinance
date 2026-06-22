@@ -12,7 +12,7 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
-  type: "expense" | "income";
+  type: "expense" | "income" | "investment";
   created_at: string;
   updated_at: string;
 }
