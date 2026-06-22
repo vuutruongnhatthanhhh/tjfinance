@@ -23,7 +23,6 @@ export async function GET(req: NextRequest) {
     .from("email_verifications")
     .select("*")
     .eq("token", token)
-    .is("used_at", null)
     .gt("expires_at", new Date().toISOString())
     .single();
 
