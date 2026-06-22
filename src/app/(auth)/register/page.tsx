@@ -31,21 +31,26 @@ export default function RegisterPage() {
 
     setLoading(true);
 
-    const res = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, fullName }),
-    });
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, fullName }),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error || "Có lỗi xảy ra. Vui lòng thử lại.");
+      if (!res.ok) {
+        setError(data.error || "Có lỗi xảy ra. Vui lòng thử lại.");
+        return;
+      }
+
+      setStep("sent");
+    } catch {
+      setError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    setStep("sent");
   };
 
   const inputStyle: React.CSSProperties = {

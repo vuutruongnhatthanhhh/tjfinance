@@ -31,7 +31,9 @@ export async function proxy(request: NextRequest) {
 
   const isAuthPage =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
+    request.nextUrl.pathname.startsWith("/register") ||
+    request.nextUrl.pathname.startsWith("/verify-email") ||
+    request.nextUrl.pathname.startsWith("/api/auth/");
 
   if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();
