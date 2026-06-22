@@ -8,6 +8,7 @@
 - Nếu có lệnh commit code thì không được đính kèm claude hay codex làm Co-Authored-By
 - Khi có lệnh commit hoặc push thì chỉ làm cho lần đó không tự ý làm cho lần sau
 - commit với tiếng anh hoàn toàn
+- commit phải dùng title với conventional commit
 - khi các file .sql mà cần sửa khi không sửa đè file cũ mà tạo ra một bản mới để fix
 - ngày trong các input và label phải hiển thị dạng dd/mm/yyyy
 - input chọn ngày mà hiện lịch, phải hiển thị lịch trên cả android, ios (safari, google chrome)
