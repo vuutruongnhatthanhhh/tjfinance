@@ -5,6 +5,18 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Format số thành dạng "50.000" cho input (không có ký hiệu tiền tệ)
+export function formatNumberInput(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  return new Intl.NumberFormat("vi-VN").format(parseInt(digits, 10));
+}
+
+// Parse chuỗi đã format về số nguyên
+export function parseFormattedNumber(value: string): number {
+  return parseInt(value.replace(/\D/g, ""), 10) || 0;
+}
+
 export function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",

@@ -6,7 +6,8 @@ import {
   Plus, Search, Trash2, Calendar, Filter,
   TrendingDown, X, ChevronDown,
 } from "lucide-react";
-import { formatCurrency, formatDate, cn } from "@/lib/utils";
+import { formatCurrency, formatDate, formatNumberInput, parseFormattedNumber, cn } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 import { createClient } from "@/lib/supabase/client";
 import { Expense, Category } from "@/types";
 import Header from "@/components/layout/Header";
@@ -61,7 +62,7 @@ function AddExpenseModal({
     e.preventDefault();
     setError("");
 
-    const amountNum = Number(amount.replace(/[.,]/g, ""));
+    const amountNum = parseFormattedNumber(amount);
     if (!amountNum || amountNum <= 0) {
       setError("Vui lòng nhập số tiền hợp lệ.");
       return;
@@ -153,12 +154,12 @@ function AddExpenseModal({
             </label>
             <div className="relative">
               <input
-                type="number"
+                type="text"
+                inputMode="numeric"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => setAmount(formatNumberInput(e.target.value))}
                 placeholder="0"
                 required
-                min="1"
                 style={{ ...inputStyle, paddingRight: "50px", fontSize: "20px", fontWeight: "bold" }}
               />
               <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium"
@@ -219,12 +220,11 @@ function AddExpenseModal({
                 style={{ color: "rgba(226,255,232,0.5)" }}>
                 Ngày
               </label>
-              <input
-                type="date"
+              <DateInput
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={setDate}
                 required
-                style={{ ...inputStyle, colorScheme: "dark" }}
+                style={inputStyle}
               />
             </div>
           </div>

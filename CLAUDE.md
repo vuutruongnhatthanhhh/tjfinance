@@ -5,7 +5,10 @@
 - Khi thao tác với sql phải làm file .sql trong thư mục migrations với số thứ tự tăng dần dạng xxxx\_[mô tả tiếng anh]
 - Ngôn ngữ dùng tiếng việt
 - Tên biến, tên hàm, tên trang dùng tiếng anh
-- Nếu có lệnh commit code thì không được đính kèm claude làm Co-Authored-By
+- Nếu có lệnh commit code thì không được đính kèm claude hay codex làm Co-Authored-By
 - Khi có lệnh commit hoặc push thì chỉ làm cho lần đó không tự ý làm cho lần sau
 - commit với tiếng anh hoàn toàn
 - khi các file .sql mà cần sửa khi không sửa đè file cũ mà tạo ra một bản mới để fix
+- ngày trong các input và label phải hiển thị dạng dd/mm/yyyy
+- input chọn ngày mà hiện lịch, phải hiển thị lịch trên cả android, ios (safari, google chrome)
+- tiền phải hiển thị dạng tiền việt nam, tự ngăn cách bởi dấu chấm khi nhập vào các input giá tiền
