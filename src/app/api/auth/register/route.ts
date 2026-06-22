@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const userId = userData.user.id;
 
     // Bước 2: Lưu token xác nhận
-    const token = randomBytes(48).toString("hex");
+    const token = randomBytes(32).toString("hex");
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     const { error: tokenError } = await supabase
