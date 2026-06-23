@@ -739,7 +739,6 @@ export default function ExpensesClient({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-
       <div className="flex-1 overflow-y-auto md:overflow-hidden custom-scrollbar px-4 sm:px-6 py-4">
         <div className="flex min-h-full flex-col md:h-full">
           <div className="space-y-2.5 mb-3 shrink-0">
@@ -774,7 +773,7 @@ export default function ExpensesClient({
                         type="text"
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
-                        placeholder="Tìm kiếm tên chi tiêu hoặc ghi chú..."
+                        placeholder="Tìm kiếm theo tên chi tiêu hoặc ghi chú..."
                         style={filterInputStyle}
                       />
                     </div>
@@ -881,7 +880,10 @@ export default function ExpensesClient({
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
-                <p className="text-xs" style={{ color: "rgba(226,255,232,0.45)" }}>
+                <p
+                  className="text-xs"
+                  style={{ color: "rgba(226,255,232,0.45)" }}
+                >
                   {totalCount} giao dịch
                 </p>
 
