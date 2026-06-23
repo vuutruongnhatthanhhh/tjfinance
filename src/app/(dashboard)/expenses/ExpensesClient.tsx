@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -11,6 +12,8 @@ import {
   Search,
   Trash2,
   TrendingDown,
+  TrendingUp,
+  Wallet,
   X,
 } from "lucide-react";
 import {
@@ -23,12 +26,16 @@ import {
 import DateInput from "@/components/ui/DateInput";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { createClient } from "@/lib/supabase/client";
-import { Category, Expense } from "@/types";
-import { useSidebarToggle } from "../DashboardLayoutClient";
+import { Category, Expense, InvestmentAsset } from "@/types";
+import {
+  getTransactionTableName,
+  TransactionType,
+} from "../transactions/transactionTables";
 
 interface ExpensesClientProps {
   initialExpenses: (Expense & { category?: Category })[];
   categories: Category[];
+  investmentAssets?: InvestmentAsset[];
   userId: string;
   currentPage: number;
   pageSize: number;
@@ -37,28 +44,171 @@ interface ExpensesClientProps {
   filterCategory: string;
   filterDateFrom: string;
   filterDateTo: string;
+  transactionType?: TransactionType;
 }
 
 const ICON_MAP: Record<string, string> = {
   utensils: "🍽️",
+  pizza: "🍕",
+  burger: "🍔",
+  coffee: "☕",
+  boba: "🧋",
+  noodle: "🍜",
+  sushi: "🍱",
+  cake: "🍰",
+  salad: "🥗",
+  beer: "🍺",
   car: "🚗",
+  motorbike: "🏍️",
+  bus: "🚌",
+  taxi: "🚕",
+  plane: "✈️",
+  train: "🚂",
+  ship: "🚢",
+  fuel: "⛽",
   "shopping-bag": "🛍️",
-  "gamepad-2": "🎮",
+  cart: "🛒",
+  clothes: "👗",
+  shoes: "👟",
+  cosmetic: "💄",
+  ring: "💍",
   "heart-pulse": "❤️‍🔥",
+  pill: "💊",
+  hospital: "🏥",
+  gym: "🏋️",
+  yoga: "🧘",
+  dental: "🦷",
   "book-open": "📚",
+  graduation: "🎓",
+  pencil: "✏️",
+  laptop: "💻",
+  phone: "📱",
+  "gamepad-2": "🎮",
+  movie: "🎬",
+  music: "🎵",
+  sport: "⚽",
+  travel: "🏖️",
+  camping: "🏕️",
+  reading: "📖",
+  home: "🏠",
+  furniture: "🛋️",
+  repair: "🔧",
+  electric: "💡",
+  water: "💧",
+  cleaning: "🧹",
   receipt: "🧾",
-  "more-horizontal": "⋯",
-  briefcase: "💼",
   "trending-up": "📈",
+  money: "💰",
+  card: "💳",
+  bank: "🏦",
+  tax: "📋",
+  briefcase: "💼",
   gift: "🎁",
+  birthday: "🎂",
+  family: "👨‍👩‍👧",
+  pet: "🐾",
+  charity: "❤️",
+  star: "⭐",
+  key: "🔑",
+  map: "🗺️",
   "plus-circle": "➕",
+  "more-horizontal": "⋯",
   circle: "⚪",
+};
+
+const TRANSACTION_CONFIG: Record<
+  TransactionType,
+  {
+    amountColor: string;
+    amountPrefix: string;
+    categoryFallback: string;
+    emptyDescription: string;
+    emptyTitle: string;
+    itemLabel: string;
+    itemLabelPlural: string;
+    modalCreateTitle: string;
+    modalEditTitle: string;
+    modalCreateSubtitle: string;
+    modalEditSubtitle: string;
+    notePlaceholder: string;
+    saveCreateLabel: string;
+    searchPlaceholder: string;
+    totalLabel: string;
+    addButtonLabel: string;
+    addFirstLabel: string;
+    tableColumnLabel: string;
+    mobileFabLabel: string;
+  }
+> = {
+  expense: {
+    amountColor: "#ef4444",
+    amountPrefix: "-",
+    categoryFallback: "Không danh mục",
+    emptyDescription: "Bắt đầu ghi lại các khoản chi tiêu của bạn",
+    emptyTitle: "Chưa có chi tiêu nào",
+    itemLabel: "chi tiêu",
+    itemLabelPlural: "giao dịch",
+    modalCreateTitle: "Thêm chi tiêu",
+    modalEditTitle: "Chỉnh sửa chi tiêu",
+    modalCreateSubtitle: "Ghi lại khoản chi tiêu mới",
+    modalEditSubtitle: "Cập nhật khoản chi tiêu",
+    notePlaceholder: "Thêm ghi chú...",
+    saveCreateLabel: "Lưu chi tiêu",
+    searchPlaceholder: "Tìm kiếm theo tên chi tiêu hoặc ghi chú...",
+    totalLabel: "Tổng chi tiêu",
+    addButtonLabel: "Thêm",
+    addFirstLabel: "Thêm chi tiêu đầu tiên",
+    tableColumnLabel: "Khoản chi",
+    mobileFabLabel: "Thêm chi tiêu",
+  },
+  income: {
+    amountColor: "#4ade80",
+    amountPrefix: "+",
+    categoryFallback: "Không danh mục",
+    emptyDescription: "Bắt đầu ghi lại các khoản thu nhập của bạn",
+    emptyTitle: "Chưa có thu nhập nào",
+    itemLabel: "thu nhập",
+    itemLabelPlural: "giao dịch",
+    modalCreateTitle: "Thêm thu nhập",
+    modalEditTitle: "Chỉnh sửa thu nhập",
+    modalCreateSubtitle: "Ghi lại khoản thu nhập mới",
+    modalEditSubtitle: "Cập nhật khoản thu nhập",
+    notePlaceholder: "Thêm ghi chú...",
+    saveCreateLabel: "Lưu thu nhập",
+    searchPlaceholder: "Tìm kiếm theo tên thu nhập hoặc ghi chú...",
+    totalLabel: "Tổng thu nhập",
+    addButtonLabel: "Thêm",
+    addFirstLabel: "Thêm thu nhập đầu tiên",
+    tableColumnLabel: "Khoản thu",
+    mobileFabLabel: "Thêm thu nhập",
+  },
+  investment: {
+    amountColor: "#60a5fa",
+    amountPrefix: "",
+    categoryFallback: "Không danh mục",
+    emptyDescription: "Bắt đầu ghi lại các khoản đầu tư của bạn",
+    emptyTitle: "Chưa có đầu tư nào",
+    itemLabel: "đầu tư",
+    itemLabelPlural: "giao dịch",
+    modalCreateTitle: "Thêm đầu tư",
+    modalEditTitle: "Chỉnh sửa đầu tư",
+    modalCreateSubtitle: "Ghi lại khoản đầu tư mới",
+    modalEditSubtitle: "Cập nhật khoản đầu tư",
+    notePlaceholder: "Thêm ghi chú...",
+    saveCreateLabel: "Lưu đầu tư",
+    searchPlaceholder: "Tìm kiếm theo tên đầu tư hoặc ghi chú...",
+    totalLabel: "Tổng đầu tư",
+    addButtonLabel: "Thêm",
+    addFirstLabel: "Thêm đầu tư đầu tiên",
+    tableColumnLabel: "Khoản đầu tư",
+    mobileFabLabel: "Thêm đầu tư",
+  },
 };
 
 function CategoryIcon({ icon, color }: { icon: string; color: string }) {
   return (
     <div
-      className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-base sm:text-lg flex-shrink-0"
+      className="h-10 w-10 flex-shrink-0 rounded-2xl flex items-center justify-center text-base sm:h-11 sm:w-11 sm:text-lg"
       style={{ background: `${color}22`, border: `1px solid ${color}33` }}
     >
       {ICON_MAP[icon] || "💰"}
@@ -68,27 +218,44 @@ function CategoryIcon({ icon, color }: { icon: string; color: string }) {
 
 function AddExpenseModal({
   categories,
+  investmentAssets = [],
   userId,
   expense,
+  transactionType,
   onClose,
   onSuccess,
 }: {
   categories: Category[];
+  investmentAssets?: InvestmentAsset[];
   userId: string;
-  expense?: Expense;
+  expense?: Expense & { asset?: InvestmentAsset; asset_id?: string | null };
+  transactionType: TransactionType;
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const config = TRANSACTION_CONFIG[transactionType];
+  const tableName = getTransactionTableName(transactionType);
+  const isInvestment = transactionType === "investment";
   const isEdit = Boolean(expense);
-  const expenseCategories = categories.filter(
-    (category) => category.type === "expense",
+  const transactionCategories = categories.filter(
+    (category) => category.type === transactionType,
   );
   const [amount, setAmount] = useState(
     expense ? formatNumberInput(String(expense.amount)) : "",
   );
   const [description, setDescription] = useState(expense?.description || "");
   const [categoryId, setCategoryId] = useState(
-    expense?.category_id || expenseCategories[0]?.id || "",
+    expense?.category_id || transactionCategories[0]?.id || "",
+  );
+  const [selectedAssetId, setSelectedAssetId] = useState(
+    expense?.asset_id || "__new__",
+  );
+  const [assetName, setAssetName] = useState(expense?.asset?.name || "");
+  const [assetDescription, setAssetDescription] = useState(
+    expense?.asset?.description || "",
+  );
+  const [isBusiness, setIsBusiness] = useState(
+    expense?.asset?.is_business || false,
   );
   const [date, setDate] = useState(
     expense?.date || new Date().toISOString().split("T")[0],
@@ -109,6 +276,75 @@ function AddExpenseModal({
 
     setLoading(true);
     const supabase = createClient();
+    let assetId = expense?.asset_id || null;
+
+    if (isInvestment) {
+      if (selectedAssetId === "__new__") {
+        if (!assetName.trim()) {
+          setError("Vui lòng nhập tên khoản đầu tư.");
+          setLoading(false);
+          return;
+        }
+
+        if (expense?.asset_id) {
+          const { error: assetUpdateError } = await supabase
+            .from("investment_assets")
+            .update({
+              name: assetName.trim(),
+              description: assetDescription.trim() || null,
+              category_id: categoryId || null,
+              is_business: isBusiness,
+              started_at: date,
+            })
+            .eq("id", expense.asset_id);
+
+          if (assetUpdateError) {
+            setError("Không thể cập nhật khoản đầu tư. Vui lòng thử lại.");
+            setLoading(false);
+            return;
+          }
+
+          assetId = expense.asset_id;
+        } else {
+          const { data: createdAsset, error: assetInsertError } = await supabase
+            .from("investment_assets")
+            .insert({
+              user_id: userId,
+              category_id: categoryId || null,
+              name: assetName.trim(),
+              description: assetDescription.trim() || null,
+              is_business: isBusiness,
+              started_at: date,
+            })
+            .select("id")
+            .single();
+
+          if (assetInsertError || !createdAsset) {
+            setError("Không thể tạo khoản đầu tư. Vui lòng thử lại.");
+            setLoading(false);
+            return;
+          }
+
+          assetId = createdAsset.id;
+        }
+      } else {
+        const { error: assetUpdateError } = await supabase
+          .from("investment_assets")
+          .update({
+            category_id: categoryId || null,
+            is_business: isBusiness,
+          })
+          .eq("id", selectedAssetId);
+
+        if (assetUpdateError) {
+          setError("Không thể cập nhật khoản đầu tư. Vui lòng thử lại.");
+          setLoading(false);
+          return;
+        }
+
+        assetId = selectedAssetId;
+      }
+    }
 
     const payload = {
       user_id: userId,
@@ -117,11 +353,12 @@ function AddExpenseModal({
       description,
       note: note || null,
       date,
+      ...(isInvestment ? { asset_id: assetId } : {}),
     };
 
     const { error: dbError } = isEdit
-      ? await supabase.from("expenses").update(payload).eq("id", expense!.id)
-      : await supabase.from("expenses").insert(payload);
+      ? await supabase.from(tableName).update(payload).eq("id", expense!.id)
+      : await supabase.from(tableName).insert(payload);
 
     if (dbError) {
       setError("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -156,45 +393,45 @@ function AddExpenseModal({
     >
       <div className="flex justify-center pt-3 pb-1 sm:hidden">
         <div
-          className="w-10 h-1 rounded-full"
+          className="h-1 w-10 rounded-full"
           style={{ background: "rgba(45,154,75,0.3)" }}
         />
       </div>
 
       <div
-        className="flex items-center justify-between px-6 py-4 border-b"
+        className="flex items-center justify-between border-b px-6 py-4"
         style={{ borderColor: "rgba(45,154,75,0.12)" }}
       >
         <div>
           <h2 className="text-lg font-bold text-white">
-            {isEdit ? "Chỉnh sửa chi tiêu" : "Thêm chi tiêu"}
+            {isEdit ? config.modalEditTitle : config.modalCreateTitle}
           </h2>
           <p
-            className="text-xs mt-0.5"
+            className="mt-0.5 text-xs"
             style={{ color: "rgba(226,255,232,0.4)" }}
           >
-            {isEdit ? "Cập nhật khoản chi tiêu" : "Ghi lại khoản chi tiêu mới"}
+            {isEdit ? config.modalEditSubtitle : config.modalCreateSubtitle}
           </p>
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+          className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
           style={{
             color: "rgba(226,255,232,0.5)",
             background: "rgba(255,255,255,0.05)",
           }}
         >
-          <X className="w-4 h-4" />
+          <X className="h-4 w-4" />
         </button>
       </div>
 
       <form
         onSubmit={handleSubmit}
-        className="p-6 space-y-4 flex-1 overflow-y-auto custom-scrollbar"
+        className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
       >
         {error && (
           <div
-            className="px-4 py-3 rounded-xl text-sm"
+            className="rounded-xl px-4 py-3 text-sm"
             style={{
               background: "rgba(239,68,68,0.1)",
               border: "1px solid rgba(239,68,68,0.3)",
@@ -207,7 +444,7 @@ function AddExpenseModal({
 
         <div>
           <label
-            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            className="mb-2 block text-xs font-semibold uppercase tracking-wide"
             style={{ color: "rgba(226,255,232,0.5)" }}
           >
             Số tiền
@@ -240,7 +477,7 @@ function AddExpenseModal({
 
         <div>
           <label
-            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            className="mb-2 block text-xs font-semibold uppercase tracking-wide"
             style={{ color: "rgba(226,255,232,0.5)" }}
           >
             Mô tả
@@ -249,16 +486,140 @@ function AddExpenseModal({
             type="text"
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            placeholder="Ăn trưa, đi taxi, mua sắm..."
+            placeholder="Ví dụ: ăn trưa, lương tháng, mua quỹ..."
             required
             style={inputStyle}
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {isInvestment && (
+          <>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.5)" }}
+                >
+                  Khoản đầu tư
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedAssetId}
+                    onChange={(event) => {
+                      const nextAssetId = event.target.value;
+                      setSelectedAssetId(nextAssetId);
+
+                      if (nextAssetId === "__new__") {
+                        setAssetName("");
+                        setAssetDescription("");
+                        setIsBusiness(false);
+                        return;
+                      }
+
+                      const selectedAsset = investmentAssets.find(
+                        (item) => item.id === nextAssetId,
+                      );
+
+                      if (selectedAsset) {
+                        setAssetName(selectedAsset.name);
+                        setAssetDescription(selectedAsset.description || "");
+                        setIsBusiness(selectedAsset.is_business);
+                        if (selectedAsset.category_id) {
+                          setCategoryId(selectedAsset.category_id);
+                        }
+                      }
+                    }}
+                    style={{
+                      ...inputStyle,
+                      paddingRight: "36px",
+                      appearance: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="__new__" style={{ background: "#0a1a0f" }}>
+                      Tạo khoản đầu tư mới
+                    </option>
+                    {investmentAssets.map((asset) => (
+                      <option
+                        key={asset.id}
+                        value={asset.id}
+                        style={{ background: "#0a1a0f" }}
+                      >
+                        {asset.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                    style={{ color: "rgba(226,255,232,0.4)" }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-end">
+                <label
+                  className="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm"
+                  style={{
+                    borderColor: "rgba(45,154,75,0.18)",
+                    background: "rgba(10,20,13,0.65)",
+                    color: "#e2ffe8",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isBusiness}
+                    onChange={(event) => setIsBusiness(event.target.checked)}
+                    className="h-4 w-4 rounded border-primary/40 bg-transparent text-primary focus:ring-primary/20"
+                  />
+                  Business
+                </label>
+              </div>
+            </div>
+
+            {selectedAssetId === "__new__" && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: "rgba(226,255,232,0.5)" }}
+                  >
+                    Tên khoản đầu tư
+                  </label>
+                  <input
+                    type="text"
+                    value={assetName}
+                    onChange={(event) => setAssetName(event.target.value)}
+                    placeholder="Ví dụ: Công ty ABC, Vàng SJC..."
+                    style={inputStyle}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: "rgba(226,255,232,0.5)" }}
+                  >
+                    Mô tả khoản đầu tư
+                  </label>
+                  <input
+                    type="text"
+                    value={assetDescription}
+                    onChange={(event) =>
+                      setAssetDescription(event.target.value)
+                    }
+                    placeholder="Mô tả ngắn..."
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label
-              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wide"
               style={{ color: "rgba(226,255,232,0.5)" }}
             >
               Danh mục
@@ -274,7 +635,7 @@ function AddExpenseModal({
                   cursor: "pointer",
                 }}
               >
-                {expenseCategories.map((category) => (
+                {transactionCategories.map((category) => (
                   <option
                     key={category.id}
                     value={category.id}
@@ -285,7 +646,7 @@ function AddExpenseModal({
                 ))}
               </select>
               <ChevronDown
-                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
                 style={{ color: "rgba(226,255,232,0.4)" }}
               />
             </div>
@@ -293,7 +654,7 @@ function AddExpenseModal({
 
           <div>
             <label
-              className="block text-xs font-semibold uppercase tracking-wide mb-2"
+              className="mb-2 block text-xs font-semibold uppercase tracking-wide"
               style={{ color: "rgba(226,255,232,0.5)" }}
             >
               Ngày
@@ -309,7 +670,7 @@ function AddExpenseModal({
 
         <div>
           <label
-            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            className="mb-2 block text-xs font-semibold uppercase tracking-wide"
             style={{ color: "rgba(226,255,232,0.5)" }}
           >
             Ghi chú{" "}
@@ -318,7 +679,7 @@ function AddExpenseModal({
           <textarea
             value={note}
             onChange={(event) => setNote(event.target.value)}
-            placeholder="Thêm ghi chú..."
+            placeholder={config.notePlaceholder}
             rows={2}
             style={{ ...inputStyle, resize: "none" }}
           />
@@ -328,7 +689,7 @@ function AddExpenseModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
+            className="flex-1 rounded-xl py-3 text-sm font-semibold transition-colors"
             style={{
               background: "rgba(255,255,255,0.05)",
               border: "1px solid rgba(255,255,255,0.1)",
@@ -343,11 +704,11 @@ function AddExpenseModal({
             className="flex-[2] btn-primary flex items-center justify-center gap-2"
           >
             {loading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
             ) : (
               <>
-                <Plus className="w-4 h-4" />
-                {isEdit ? "Lưu thay đổi" : "Lưu chi tiêu"}
+                <Plus className="h-4 w-4" />
+                {isEdit ? "Lưu thay đổi" : config.saveCreateLabel}
               </>
             )}
           </button>
@@ -373,26 +734,26 @@ function ExpenseActionButtons({
       <button
         onClick={() => onEdit(expense)}
         className={cn(
-          "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+          "h-9 w-9 rounded-xl flex items-center justify-center transition-colors",
           "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20",
         )}
         aria-label="Chỉnh sửa"
       >
-        <Pencil className="w-4 h-4" />
+        <Pencil className="h-4 w-4" />
       </button>
       <button
         onClick={() => onDelete(expense.id)}
         disabled={deleting}
         className={cn(
-          "w-9 h-9 rounded-xl flex items-center justify-center transition-colors",
+          "h-9 w-9 rounded-xl flex items-center justify-center transition-colors",
           "bg-red-500/10 text-red-400 hover:bg-red-500/20",
         )}
         aria-label="Xóa"
       >
         {deleting ? (
-          <div className="w-4 h-4 border border-red-400/50 border-t-red-400 rounded-full animate-spin" />
+          <div className="h-4 w-4 animate-spin rounded-full border border-red-400/50 border-t-red-400" />
         ) : (
-          <Trash2 className="w-4 h-4" />
+          <Trash2 className="h-4 w-4" />
         )}
       </button>
     </div>
@@ -402,11 +763,17 @@ function ExpenseActionButtons({
 function ExpenseMobileCard({
   expense,
   deleting,
+  amountColor,
+  amountPrefix,
+  categoryFallback,
   onEdit,
   onDelete,
 }: {
   expense: Expense & { category?: Category };
   deleting: boolean;
+  amountColor: string;
+  amountPrefix: string;
+  categoryFallback: string;
   onEdit: (expense: Expense & { category?: Category }) => void;
   onDelete: (id: string) => void;
 }) {
@@ -427,13 +794,13 @@ function ExpenseMobileCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-white break-words leading-snug">
+              <p className="break-words text-sm font-semibold leading-snug text-white">
                 {expense.description}
               </p>
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 {expense.category ? (
                   <span
-                    className="text-xs px-2.5 py-1 rounded-full"
+                    className="rounded-full px-2.5 py-1 text-xs"
                     style={{
                       background: `${expense.category.color}18`,
                       color: expense.category.color,
@@ -447,31 +814,32 @@ function ExpenseMobileCard({
                     className="text-xs"
                     style={{ color: "rgba(226,255,232,0.38)" }}
                   >
-                    Không danh mục
+                    {categoryFallback}
                   </span>
                 )}
 
                 <span
-                  className="text-xs flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs"
                   style={{ color: "rgba(226,255,232,0.32)" }}
                 >
-                  <CalendarRange className="w-3 h-3" />
+                  <CalendarRange className="h-3 w-3" />
                   {formatDate(expense.date)}
                 </span>
               </div>
             </div>
 
             <span
-              className="text-sm font-bold whitespace-nowrap"
-              style={{ color: "#ef4444" }}
+              className="whitespace-nowrap text-sm font-bold"
+              style={{ color: amountColor }}
             >
-              -{formatCurrency(expense.amount)}
+              {amountPrefix}
+              {formatCurrency(expense.amount)}
             </span>
           </div>
 
           {expense.note && (
             <p
-              className="text-xs mt-3 italic break-words"
+              className="mt-3 break-words text-xs italic"
               style={{ color: "rgba(226,255,232,0.38)" }}
             >
               {expense.note}
@@ -495,36 +863,42 @@ function ExpenseMobileCard({
 function ExpenseTableRow({
   expense,
   deleting,
+  amountColor,
+  amountPrefix,
+  categoryFallback,
   onEdit,
   onDelete,
   isLast,
 }: {
   expense: Expense & { category?: Category };
   deleting: boolean;
+  amountColor: string;
+  amountPrefix: string;
+  categoryFallback: string;
   onEdit: (expense: Expense & { category?: Category }) => void;
   onDelete: (id: string) => void;
   isLast?: boolean;
 }) {
   return (
     <div
-      className="grid grid-cols-[2.2fr_1fr_1.1fr_0.9fr_0.6fr] gap-3 px-4 py-2.5 items-center"
+      className="grid grid-cols-[2.2fr_1fr_1.1fr_0.9fr_0.6fr] items-center gap-3 px-4 py-2.5"
       style={{
         borderBottom: isLast ? "none" : "1px solid rgba(45,154,75,0.06)",
       }}
     >
-      <div className="flex items-start gap-3.5 min-w-0">
+      <div className="flex min-w-0 items-start gap-4">
         <CategoryIcon
           icon={expense.category?.icon || "circle"}
           color={expense.category?.color || "#2D9A4B"}
         />
 
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-white break-words leading-snug">
+          <p className="break-words text-sm font-semibold leading-snug text-white">
             {expense.description}
           </p>
           {expense.note && (
             <p
-              className="text-xs mt-1 italic truncate"
+              className="mt-1 truncate text-xs italic"
               style={{ color: "rgba(226,255,232,0.34)" }}
             >
               {expense.note}
@@ -536,7 +910,7 @@ function ExpenseTableRow({
       <div className="min-w-0">
         {expense.category ? (
           <span
-            className="inline-flex text-[11px] px-2 py-0.5 rounded-full"
+            className="inline-flex rounded-full px-2 py-0.5 text-[11px]"
             style={{
               background: `${expense.category.color}18`,
               color: expense.category.color,
@@ -547,24 +921,22 @@ function ExpenseTableRow({
           </span>
         ) : (
           <span className="text-xs" style={{ color: "rgba(226,255,232,0.32)" }}>
-            Không danh mục
+            {categoryFallback}
           </span>
         )}
       </div>
 
       <div
-        className="text-xs flex items-center gap-1"
+        className="flex items-center gap-1 text-xs"
         style={{ color: "rgba(226,255,232,0.42)" }}
       >
-        <CalendarRange className="w-3.5 h-3.5" />
+        <CalendarRange className="h-3.5 w-3.5" />
         {formatDate(expense.date)}
       </div>
 
-      <div
-        className="text-right text-xs font-bold whitespace-nowrap"
-        style={{ color: "#ef4444" }}
-      >
-        -{formatCurrency(expense.amount)}
+      <div className="text-right text-xs font-bold whitespace-nowrap" style={{ color: amountColor }}>
+        {amountPrefix}
+        {formatCurrency(expense.amount)}
       </div>
 
       <div className="flex justify-end">
@@ -582,6 +954,7 @@ function ExpenseTableRow({
 export default function ExpensesClient({
   initialExpenses,
   categories,
+  investmentAssets = [],
   userId,
   currentPage,
   pageSize,
@@ -590,15 +963,21 @@ export default function ExpensesClient({
   filterCategory,
   filterDateFrom,
   filterDateTo,
+  transactionType = "expense",
 }: ExpensesClientProps) {
+  const config = TRANSACTION_CONFIG[transactionType];
+  const tableName = getTransactionTableName(transactionType);
   const router = useRouter();
   const pathname = usePathname();
-  const onMenuToggle = useSidebarToggle();
   const desktopTableRef = useRef<HTMLDivElement | null>(null);
   const desktopTableScrollRef = useRef<HTMLDivElement | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editExpense, setEditExpense] = useState<
-    (Expense & { category?: Category }) | undefined
+    (Expense & {
+      category?: Category;
+      asset?: InvestmentAsset;
+      asset_id?: string | null;
+    }) | undefined
   >();
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
@@ -659,7 +1038,7 @@ export default function ExpensesClient({
   const handleDelete = async (id: string) => {
     setDeleteId(id);
     const supabase = createClient();
-    await supabase.from("expenses").delete().eq("id", id);
+    await supabase.from(tableName).delete().eq("id", id);
     startTransition(() => router.refresh());
     setDeleteId(null);
   };
@@ -678,9 +1057,12 @@ export default function ExpensesClient({
     Number(Boolean(selectedDateFrom)) +
     Number(Boolean(selectedDateTo));
   const hasActiveFilters = activeFilterCount > 0;
-  const showTotalExpense = hasActiveFilters && !isPending;
+  const showTotalAmount = hasActiveFilters && !isPending;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
   const currentExpenses = initialExpenses;
+  const currentCategories = categories.filter(
+    (category) => category.type === transactionType,
+  );
 
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -693,9 +1075,7 @@ export default function ExpensesClient({
       block: "start",
       behavior: "auto",
     });
-    if (desktopTableScrollRef.current) {
-      desktopTableScrollRef.current.scrollTo({ top: 0, behavior: "auto" });
-    }
+    desktopTableScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [currentPage, searchQuery, filterCategory, filterDateFrom, filterDateTo]);
 
   const filterInputStyle = {
@@ -737,11 +1117,18 @@ export default function ExpensesClient({
     navigate({ q: searchInput.trim(), page: 1 });
   };
 
+  const EmptyIcon =
+    transactionType === "expense"
+      ? TrendingDown
+      : transactionType === "income"
+        ? TrendingUp
+        : Wallet;
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex-1 overflow-y-auto md:overflow-hidden custom-scrollbar px-4 sm:px-6 py-4">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar md:overflow-hidden sm:px-6">
         <div className="flex min-h-full flex-col md:h-full">
-          <div className="space-y-2.5 mb-3 shrink-0">
+          <div className="mb-3 shrink-0 space-y-2.5">
             <div
               className="rounded-2xl border p-2.5"
               style={{
@@ -766,20 +1153,20 @@ export default function ExpensesClient({
                   <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
                     <div className="relative">
                       <Search
-                        className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                        className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                         style={{ color: "rgba(226,255,232,0.3)" }}
                       />
                       <input
                         type="text"
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
-                        placeholder="Tìm kiếm theo tên chi tiêu hoặc ghi chú..."
+                        placeholder={config.searchPlaceholder}
                         style={filterInputStyle}
                       />
                     </div>
                     <button
                       type="submit"
-                      className="inline-flex h-[40px] items-center justify-center gap-2 px-4 rounded-xl text-sm font-medium border transition-colors"
+                      className="inline-flex h-[40px] items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors"
                       style={{
                         background:
                           "linear-gradient(135deg, rgba(45,154,75,0.24), rgba(45,154,75,0.12))",
@@ -787,7 +1174,7 @@ export default function ExpensesClient({
                         color: "#e2ffe8",
                       }}
                     >
-                      <Search className="w-4 h-4" />
+                      <Search className="h-4 w-4" />
                       Tìm
                     </button>
                   </div>
@@ -802,7 +1189,7 @@ export default function ExpensesClient({
                   </p>
                   <div className="relative">
                     <Filter
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                       style={{ color: "rgba(226,255,232,0.3)" }}
                     />
                     <select
@@ -815,17 +1202,15 @@ export default function ExpensesClient({
                       style={selectStyle}
                     >
                       <option value="all">Tất cả</option>
-                      {categories
-                        .filter((category) => category.type === "expense")
-                        .map((category) => (
-                          <option
-                            key={category.id}
-                            value={category.id}
-                            style={{ background: "#0a1a0f" }}
-                          >
-                            {category.name}
-                          </option>
-                        ))}
+                      {currentCategories.map((category) => (
+                        <option
+                          key={category.id}
+                          value={category.id}
+                          style={{ background: "#0a1a0f" }}
+                        >
+                          {category.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -839,7 +1224,7 @@ export default function ExpensesClient({
                   </p>
                   <div className="relative">
                     <CalendarRange
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                       style={{ color: "rgba(226,255,232,0.3)" }}
                     />
                     <DateInput
@@ -862,7 +1247,7 @@ export default function ExpensesClient({
                   </p>
                   <div className="relative">
                     <CalendarRange
-                      className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                      className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2"
                       style={{ color: "rgba(226,255,232,0.3)" }}
                     />
                     <DateInput
@@ -884,12 +1269,15 @@ export default function ExpensesClient({
                   className="text-xs"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  {totalCount} giao dịch
+                  {totalCount} {config.itemLabelPlural}
                 </p>
 
-                {showTotalExpense && (
-                  <p className="text-xs font-medium text-red-400">
-                    Tổng chi tiêu: -
+                {showTotalAmount && (
+                  <p
+                    className="text-xs font-medium"
+                    style={{ color: config.amountColor }}
+                  >
+                    {config.totalLabel}: {config.amountPrefix}
                     {formatCurrency(
                       currentExpenses.reduce(
                         (sum, expense) => sum + Number(expense.amount),
@@ -900,19 +1288,33 @@ export default function ExpensesClient({
                 )}
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div className="flex self-start items-center gap-2 sm:self-auto">
+                {transactionType === "investment" && (
+                  <Link
+                    href="/investment-portfolio"
+                    className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors"
+                    style={{
+                      background: "rgba(59,130,246,0.08)",
+                      borderColor: "rgba(59,130,246,0.2)",
+                      color: "#bfdbfe",
+                    }}
+                  >
+                    Danh mục đầu tư
+                  </Link>
+                )}
+
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-colors"
+                    className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors"
                     style={{
                       background: "rgba(255,255,255,0.04)",
                       borderColor: "rgba(45,154,75,0.14)",
                       color: "#e2ffe8",
                     }}
                   >
-                    <X className="w-4 h-4" />
+                    <X className="h-4 w-4" />
                     Xóa bộ lọc
                   </button>
                 )}
@@ -922,7 +1324,7 @@ export default function ExpensesClient({
                     setEditExpense(undefined);
                     setShowModal(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors"
                   style={{
                     background: "linear-gradient(135deg, #2D9A4B, #237c3d)",
                     borderColor: "rgba(45,154,75,0.45)",
@@ -930,8 +1332,8 @@ export default function ExpensesClient({
                     boxShadow: "0 8px 18px rgba(45,154,75,0.22)",
                   }}
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  Thêm
+                  <Plus className="h-3.5 w-3.5" />
+                  {config.addButtonLabel}
                 </button>
               </div>
             </div>
@@ -945,6 +1347,9 @@ export default function ExpensesClient({
                     key={expense.id}
                     expense={expense}
                     deleting={deleteId === expense.id}
+                    amountColor={config.amountColor}
+                    amountPrefix={config.amountPrefix}
+                    categoryFallback={config.categoryFallback}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                   />
@@ -953,14 +1358,14 @@ export default function ExpensesClient({
 
               <div
                 ref={desktopTableRef}
-                className="hidden md:flex md:min-h-0 md:flex-1 md:flex-col rounded-2xl border overflow-hidden"
+                className="hidden overflow-hidden rounded-2xl border md:flex md:min-h-0 md:flex-1 md:flex-col"
                 style={{
                   background: "rgba(10,20,13,0.62)",
                   borderColor: "rgba(45,154,75,0.06)",
                 }}
               >
                 <div
-                  className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b shrink-0"
+                  className="flex shrink-0 flex-col gap-2 border-b px-4 py-2 sm:flex-row sm:items-center sm:justify-between"
                   style={{
                     background: "rgba(10,20,13,0.72)",
                     borderColor: "rgba(45,154,75,0.08)",
@@ -981,7 +1386,7 @@ export default function ExpensesClient({
                         navigate({ page: Math.max(1, currentPage - 1) })
                       }
                       disabled={currentPage <= 1}
-                      className="px-2.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
                       style={{
                         background: "rgba(255,255,255,0.04)",
                         borderColor: "rgba(45,154,75,0.14)",
@@ -998,7 +1403,7 @@ export default function ExpensesClient({
                         })
                       }
                       disabled={currentPage >= totalPages}
-                      className="px-2.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:text-sm"
                       style={{
                         background: "rgba(255,255,255,0.04)",
                         borderColor: "rgba(45,154,75,0.14)",
@@ -1023,7 +1428,7 @@ export default function ExpensesClient({
                       backdropFilter: "blur(16px)",
                     }}
                   >
-                    <div>Khoản chi</div>
+                    <div>{config.tableColumnLabel}</div>
                     <div>Danh mục</div>
                     <div>Ngày</div>
                     <div className="text-right">Số tiền</div>
@@ -1035,6 +1440,9 @@ export default function ExpensesClient({
                       key={expense.id}
                       expense={expense}
                       deleting={deleteId === expense.id}
+                      amountColor={config.amountColor}
+                      amountPrefix={config.amountPrefix}
+                      categoryFallback={config.categoryFallback}
                       isLast={
                         currentExpenses[currentExpenses.length - 1]?.id ===
                         expense.id
@@ -1049,29 +1457,26 @@ export default function ExpensesClient({
           ) : (
             <div className="flex flex-col items-center justify-center py-20 text-center md:flex-1">
               <div
-                className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
+                className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
                 style={{
                   background: "rgba(45,154,75,0.1)",
                   border: "1px solid rgba(45,154,75,0.15)",
                 }}
               >
-                <TrendingDown
-                  className="w-8 h-8"
-                  style={{ color: "#2D9A4B" }}
-                />
+                <EmptyIcon className="h-8 w-8" style={{ color: "#2D9A4B" }} />
               </div>
-              <p className="text-base font-medium dark:text-white text-gray-900">
+              <p className="text-base font-medium text-gray-900 dark:text-white">
                 {hasActiveFilters
                   ? "Không tìm thấy giao dịch phù hợp"
-                  : "Chưa có chi tiêu nào"}
+                  : config.emptyTitle}
               </p>
               <p
-                className="text-sm mt-2"
+                className="mt-2 text-sm"
                 style={{ color: "rgba(226,255,232,0.4)" }}
               >
                 {hasActiveFilters
                   ? "Thử đổi từ khóa, danh mục hoặc khoảng ngày"
-                  : "Bắt đầu ghi lại các khoản chi tiêu của bạn"}
+                  : config.emptyDescription}
               </p>
               {!hasActiveFilters && (
                 <button
@@ -1081,8 +1486,8 @@ export default function ExpensesClient({
                   }}
                   className="btn-primary mt-4 flex items-center gap-2"
                 >
-                  <Plus className="w-4 h-4" />
-                  Thêm chi tiêu đầu tiên
+                  <Plus className="h-4 w-4" />
+                  {config.addFirstLabel}
                 </button>
               )}
             </div>
@@ -1095,21 +1500,23 @@ export default function ExpensesClient({
           setEditExpense(undefined);
           setShowModal(true);
         }}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl lg:hidden flex items-center justify-center shadow-2xl z-20"
+        className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xl lg:hidden"
         style={{
           background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
           boxShadow: "0 8px 25px rgba(45,154,75,0.5)",
         }}
-        aria-label="Thêm chi tiêu"
+        aria-label={config.mobileFabLabel}
       >
-        <Plus className="w-6 h-6 text-white" />
+        <Plus className="h-6 w-6 text-white" />
       </button>
 
       {showModal && (
         <AddExpenseModal
           categories={categories}
+          investmentAssets={investmentAssets}
           userId={userId}
           expense={editExpense}
+          transactionType={transactionType}
           onClose={() => setShowModal(false)}
           onSuccess={() => startTransition(() => router.refresh())}
         />

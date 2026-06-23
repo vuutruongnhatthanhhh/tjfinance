@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard,
-  CreditCard,
-  Tag,
-  LogOut,
+  ArrowDownCircle,
+  ArrowUpCircle,
   Banknote,
-  X,
   ChevronRight,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
+  Tag,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -21,9 +23,31 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { href: "/dashboard", label: "Tổng quan", icon: <LayoutDashboard className="w-5 h-5" /> },
-  { href: "/expenses", label: "Chi tiêu", icon: <CreditCard className="w-5 h-5" /> },
-  { href: "/categories", label: "Danh mục", icon: <Tag className="w-5 h-5" /> },
+  {
+    href: "/dashboard",
+    label: "Tổng quan",
+    icon: <LayoutDashboard className="h-5 w-5" />,
+  },
+  {
+    href: "/expenses",
+    label: "Chi tiêu",
+    icon: <ArrowDownCircle className="h-5 w-5" />,
+  },
+  {
+    href: "/income",
+    label: "Thu nhập",
+    icon: <ArrowUpCircle className="h-5 w-5" />,
+  },
+  {
+    href: "/investments",
+    label: "Đầu tư",
+    icon: <Landmark className="h-5 w-5" />,
+  },
+  {
+    href: "/categories",
+    label: "Danh mục",
+    icon: <Tag className="h-5 w-5" />,
+  },
 ];
 
 interface SidebarProps {
@@ -33,7 +57,12 @@ interface SidebarProps {
   userName?: string;
 }
 
-export default function Sidebar({ isOpen, onClose, userEmail, userName }: SidebarProps) {
+export default function Sidebar({
+  isOpen,
+  onClose,
+  userEmail,
+  userName,
+}: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -46,59 +75,96 @@ export default function Sidebar({ isOpen, onClose, userEmail, userName }: Sideba
 
   const userInitial = (userName || userEmail || "U")[0].toUpperCase();
 
-  // Mobile full sidebar content
   const mobileSidebarContent = (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between px-6 py-5 border-b"
-        style={{ borderColor: "rgba(45,154,75,0.15)" }}>
+    <div className="flex h-full flex-col">
+      <div
+        className="flex items-center justify-between border-b px-6 py-5"
+        style={{ borderColor: "rgba(45,154,75,0.15)" }}
+      >
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)", boxShadow: "0 0 15px rgba(45,154,75,0.4)" }}>
-            <Banknote className="w-5 h-5 text-white" />
+          <div
+            className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
+            style={{
+              background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
+              boxShadow: "0 0 15px rgba(45,154,75,0.4)",
+            }}
+          >
+            <Banknote className="h-5 w-5 text-white" />
           </div>
           <div>
-            <span className="font-bold text-lg leading-none dark:text-white">TJ</span>
-            <span className="font-bold text-lg leading-none" style={{ color: "#2D9A4B" }}>Finance</span>
+            <span className="text-lg font-bold leading-none text-white">TJ</span>
+            <span
+              className="text-lg font-bold leading-none"
+              style={{ color: "#2D9A4B" }}
+            >
+              Finance
+            </span>
           </div>
         </div>
-        <button onClick={onClose}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
-          style={{ color: "rgba(226,255,232,0.5)" }}>
-          <X className="w-4 h-4" />
+        <button
+          onClick={onClose}
+          className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+          style={{ color: "rgba(226,255,232,0.5)" }}
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4 custom-scrollbar">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive =
+            pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
-            <Link key={item.href} href={item.href} onClick={onClose}
-              className={cn("sidebar-item group", isActive && "active")}>
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onClose}
+              className={cn("sidebar-item group", isActive && "active")}
+            >
               <span className="flex-shrink-0">{item.icon}</span>
               <span className="flex-1">{item.label}</span>
-              {isActive && <ChevronRight className="w-4 h-4 opacity-60" />}
+              {isActive && <ChevronRight className="h-4 w-4 opacity-60" />}
             </Link>
           );
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t space-y-3" style={{ borderColor: "rgba(45,154,75,0.15)" }}>
-        <div className="px-4 py-3 rounded-xl"
-          style={{ background: "rgba(45,154,75,0.06)", border: "1px solid rgba(45,154,75,0.1)" }}>
+      <div
+        className="space-y-3 border-t px-3 py-4"
+        style={{ borderColor: "rgba(45,154,75,0.15)" }}
+      >
+        <div
+          className="rounded-xl px-4 py-3"
+          style={{
+            background: "rgba(45,154,75,0.06)",
+            border: "1px solid rgba(45,154,75,0.1)",
+          }}
+        >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 text-white"
-              style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
+            <div
+              className="h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white"
+              style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}
+            >
               {userInitial}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate dark:text-white">{userName || "Người dùng"}</p>
-              <p className="text-xs truncate" style={{ color: "rgba(226,255,232,0.4)" }}>{userEmail}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium text-white">
+                {userName || "Người dùng"}
+              </p>
+              <p
+                className="truncate text-xs"
+                style={{ color: "rgba(226,255,232,0.4)" }}
+              >
+                {userEmail}
+              </p>
             </div>
           </div>
         </div>
-        <button onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 text-red-400 hover:bg-red-500/10">
-          <LogOut className="w-5 h-5" />
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-all duration-200 hover:bg-red-500/10"
+        >
+          <LogOut className="h-5 w-5" />
           Đăng xuất
         </button>
       </div>
@@ -107,120 +173,147 @@ export default function Sidebar({ isOpen, onClose, userEmail, userName }: Sideba
 
   return (
     <>
-      {/* Desktop sidebar - hover to expand */}
       <aside
-        className="group/sidebar hidden lg:flex flex-col h-screen sticky top-0 flex-shrink-0 overflow-hidden w-16 hover:w-64 transition-[width] duration-300 ease-in-out"
-        style={{
-          background: "rgba(8, 20, 12, 0.95)",
-          borderRight: "1px solid rgba(45,154,75,0.12)",
-          backdropFilter: "blur(20px)",
-        }}
+        className="group/sidebar sticky top-0 hidden h-screen flex-shrink-0 overflow-hidden border-r bg-[rgba(8,20,12,0.95)] backdrop-blur-[20px] transition-[width] duration-300 ease-in-out lg:flex lg:w-16 hover:w-64"
+        style={{ borderColor: "rgba(45,154,75,0.12)" }}
       >
-        {/* Logo */}
-        <div className="flex items-center px-3.5 py-5 border-b"
-          style={{ borderColor: "rgba(45,154,75,0.15)" }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)", boxShadow: "0 0 15px rgba(45,154,75,0.4)" }}>
-            <Banknote className="w-5 h-5 text-white" />
-          </div>
-          <div className="ml-3 overflow-hidden max-w-0 group-hover/sidebar:max-w-[200px] opacity-0 group-hover/sidebar:opacity-100 transition-all duration-300 whitespace-nowrap">
-            <span className="font-bold text-lg leading-none dark:text-white">TJ</span>
-            <span className="font-bold text-lg leading-none" style={{ color: "#2D9A4B" }}>Finance</span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-          <div className="overflow-hidden max-w-0 group-hover/sidebar:max-w-[200px] opacity-0 group-hover/sidebar:opacity-100 transition-all duration-300 whitespace-nowrap text-xs font-semibold uppercase tracking-wider mb-3 px-2.5"
-            style={{ color: "rgba(226,255,232,0.3)" }}>
-            Menu
-          </div>
-          {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center py-2.5 rounded-xl transition-all duration-300 cursor-pointer text-sm font-medium",
-                  "px-[14px] group-hover/sidebar:px-3",
-                  isActive
-                    ? "text-[#4ade80] bg-[rgba(45,154,75,0.2)] shadow-[inset_2px_0_0_#2D9A4B]"
-                    : "text-[rgba(226,255,232,0.6)] hover:bg-[rgba(45,154,75,0.1)] hover:text-[#e2ffe8]"
-                )}
-              >
-                <span className="flex-shrink-0">{item.icon}</span>
-                {/* spacer thay cho gap-3 để không chiếm chỗ khi collapsed */}
-                <span className="w-0 group-hover/sidebar:w-3 flex-shrink-0 transition-[width] duration-300" />
-                <span className="flex-1 overflow-hidden max-w-0 group-hover/sidebar:max-w-[200px] opacity-0 group-hover/sidebar:opacity-100 transition-all duration-300 whitespace-nowrap">
-                  {item.label}
-                </span>
-                {isActive && (
-                  <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-0 group-hover/sidebar:opacity-60 transition-opacity duration-300" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Bottom section */}
-        <div className="px-2 py-4 border-t space-y-2" style={{ borderColor: "rgba(45,154,75,0.15)" }}>
-          {/* User info */}
-          <div className="rounded-xl overflow-hidden"
-            style={{ background: "rgba(45,154,75,0.06)", border: "1px solid rgba(45,154,75,0.1)" }}>
-            {/* Collapsed: avatar căn giữa */}
-            <div className="flex justify-center py-2 group-hover/sidebar:hidden">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
-                {userInitial}
-              </div>
-            </div>
-            {/* Expanded: full info */}
-            <div className="hidden group-hover/sidebar:flex items-center gap-3 px-3 py-2">
-              <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}>
-                {userInitial}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate dark:text-white">{userName || "Người dùng"}</p>
-                <p className="text-xs truncate" style={{ color: "rgba(226,255,232,0.4)" }}>{userEmail}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center py-2.5 rounded-xl text-sm font-medium transition-all duration-300 text-red-400 hover:bg-red-500/10 px-[14px] group-hover/sidebar:px-3"
+        <div className="flex w-full flex-col">
+          <div
+            className="flex items-center border-b px-3.5 py-5"
+            style={{ borderColor: "rgba(45,154,75,0.15)" }}
           >
-            <LogOut className="w-5 h-5 flex-shrink-0" />
-            <span className="w-0 group-hover/sidebar:w-3 flex-shrink-0 transition-[width] duration-300" />
-            <span className="overflow-hidden max-w-0 group-hover/sidebar:max-w-[200px] opacity-0 group-hover/sidebar:opacity-100 transition-all duration-300 whitespace-nowrap">
-              Đăng xuất
-            </span>
-          </button>
+            <div
+              className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
+              style={{
+                background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
+                boxShadow: "0 0 15px rgba(45,154,75,0.4)",
+              }}
+            >
+              <Banknote className="h-5 w-5 text-white" />
+            </div>
+            <div className="ml-3 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
+              <span className="text-lg font-bold leading-none text-white">TJ</span>
+              <span
+                className="text-lg font-bold leading-none"
+                style={{ color: "#2D9A4B" }}
+              >
+                Finance
+              </span>
+            </div>
+          </div>
+
+          <nav className="flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-4 custom-scrollbar">
+            <div
+              className="mb-3 max-w-0 overflow-hidden whitespace-nowrap px-2.5 text-xs font-semibold uppercase tracking-wider opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100"
+              style={{ color: "rgba(226,255,232,0.3)" }}
+            >
+              Menu
+            </div>
+            {navItems.map((item) => {
+              const isActive =
+                pathname === item.href || pathname.startsWith(`${item.href}/`);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex cursor-pointer items-center rounded-xl py-2.5 text-sm font-medium transition-all duration-300",
+                    "px-[14px] group-hover/sidebar:px-3",
+                    isActive
+                      ? "bg-[rgba(45,154,75,0.2)] text-[#4ade80] shadow-[inset_2px_0_0_#2D9A4B]"
+                      : "text-[rgba(226,255,232,0.6)] hover:bg-[rgba(45,154,75,0.1)] hover:text-[#e2ffe8]",
+                  )}
+                >
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  <span className="w-0 flex-shrink-0 transition-[width] duration-300 group-hover/sidebar:w-3" />
+                  <span className="max-w-0 flex-1 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
+                    {item.label}
+                  </span>
+                  {isActive && (
+                    <ChevronRight className="h-4 w-4 flex-shrink-0 opacity-0 transition-opacity duration-300 group-hover/sidebar:opacity-60" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div
+            className="space-y-2 border-t px-2 py-4"
+            style={{ borderColor: "rgba(45,154,75,0.15)" }}
+          >
+            <div
+              className="overflow-hidden rounded-xl"
+              style={{
+                background: "rgba(45,154,75,0.06)",
+                border: "1px solid rgba(45,154,75,0.1)",
+              }}
+            >
+              <div className="flex justify-center py-2 group-hover/sidebar:hidden">
+                <div
+                  className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                  style={{
+                    background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
+                  }}
+                >
+                  {userInitial}
+                </div>
+              </div>
+              <div className="hidden items-center gap-3 px-3 py-2 group-hover/sidebar:flex">
+                <div
+                  className="h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                  style={{
+                    background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
+                  }}
+                >
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white">
+                    {userName || "Người dùng"}
+                  </p>
+                  <p
+                    className="truncate text-xs"
+                    style={{ color: "rgba(226,255,232,0.4)" }}
+                  >
+                    {userEmail}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center rounded-xl px-[14px] py-2.5 text-sm font-medium text-red-400 transition-all duration-300 hover:bg-red-500/10 group-hover/sidebar:px-3"
+            >
+              <LogOut className="h-5 w-5 flex-shrink-0" />
+              <span className="w-0 flex-shrink-0 transition-[width] duration-300 group-hover/sidebar:w-3" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
+                Đăng xuất
+              </span>
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* Mobile overlay */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 lg:hidden"
-          style={{ background: "rgba(5,13,9,0.7)", backdropFilter: "blur(4px)" }}
+          style={{
+            background: "rgba(5,13,9,0.7)",
+            backdropFilter: "blur(4px)",
+          }}
           onClick={onClose}
         />
       )}
 
-      {/* Mobile sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-72 flex flex-col lg:hidden transition-transform duration-300 ease-out",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r backdrop-blur-[20px] transition-transform duration-300 ease-out lg:hidden",
+          isOpen ? "translate-x-0" : "-translate-x-full",
         )}
         style={{
           background: "rgba(8, 20, 12, 0.98)",
-          borderRight: "1px solid rgba(45,154,75,0.15)",
-          backdropFilter: "blur(20px)",
+          borderColor: "rgba(45,154,75,0.15)",
           boxShadow: "20px 0 60px rgba(0,0,0,0.5)",
         }}
       >

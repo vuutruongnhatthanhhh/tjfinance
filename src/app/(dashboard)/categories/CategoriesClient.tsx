@@ -169,7 +169,7 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
   return (
     <ModalOverlay
       onClose={onClose}
-      panelClassName="w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl"
+      panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
       panelStyle={{
         background: "rgba(8,20,12,0.97)",
         border: "1px solid rgba(45,154,75,0.2)",
@@ -193,7 +193,10 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form
+          onSubmit={handleSubmit}
+          className="p-6 space-y-5 flex-1 overflow-y-auto custom-scrollbar"
+        >
           {error && (
             <div className="px-4 py-3 rounded-xl text-sm"
               style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>

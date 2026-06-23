@@ -1,15 +1,15 @@
-import ExpensesClient from "./ExpensesClient";
+import ExpensesClient from "../expenses/ExpensesClient";
 import {
   getTransactionPageData,
   TransactionSearchParams,
 } from "../transactions/getTransactionPageData";
 
-export default async function ExpensesPage({
+export default async function IncomePage({
   searchParams,
 }: {
   searchParams?: TransactionSearchParams | Promise<TransactionSearchParams>;
 }) {
-  const data = await getTransactionPageData(searchParams, "expense");
+  const data = await getTransactionPageData(searchParams, "income");
 
   return (
     <ExpensesClient
@@ -23,7 +23,7 @@ export default async function ExpensesPage({
       filterCategory={data.filterCategory}
       filterDateFrom={data.filterDateFrom}
       filterDateTo={data.filterDateTo}
-      transactionType="expense"
+      transactionType="income"
     />
   );
 }

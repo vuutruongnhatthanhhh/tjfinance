@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 interface StatCardProps {
   title: string;
   value: string;
+  valueColor?: string;
   subtitle?: string;
   icon: React.ReactNode;
   trend?: { value: number; label: string };
@@ -39,7 +40,16 @@ const colorMap = {
   },
 };
 
-export default function StatCard({ title, value, subtitle, icon, trend, color = "green", className }: StatCardProps) {
+export default function StatCard({
+  title,
+  value,
+  valueColor,
+  subtitle,
+  icon,
+  trend,
+  color = "green",
+  className,
+}: StatCardProps) {
   const colors = colorMap[color];
 
   return (
@@ -57,7 +67,10 @@ export default function StatCard({ title, value, subtitle, icon, trend, color = 
           <p className="text-sm font-medium mb-1" style={{ color: "rgba(226,255,232,0.5)" }}>
             {title}
           </p>
-          <p className="text-2xl font-bold dark:text-white text-gray-900 leading-tight">
+          <p
+            className="text-2xl font-bold dark:text-white text-gray-900 leading-tight"
+            style={valueColor ? { color: valueColor } : undefined}
+          >
             {value}
           </p>
           {subtitle && (
