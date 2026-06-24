@@ -18,7 +18,7 @@ export default async function InvestmentAssetDetailPage({
 
   const assetId = resolvedParams.assetId;
 
-  const [{ data: asset }, { data: investments }, { data: valuations }, { data: returns }] =
+  const [{ data: asset }, { data: investments }, { data: valuations }, { data: returns }, { data: investmentCategories }] =
     await Promise.all([
       supabase
         .from("investment_assets")
@@ -28,7 +28,7 @@ export default async function InvestmentAssetDetailPage({
         .single(),
       supabase
         .from("investments")
-        .select("*")
+        .select("*, category:categories(*)")
         .eq("user_id", user.id)
         .eq("asset_id", assetId)
         .order("date", { ascending: false }),
@@ -45,6 +45,12 @@ export default async function InvestmentAssetDetailPage({
         .eq("user_id", user.id)
         .eq("asset_id", assetId)
         .order("date", { ascending: false }),
+      supabase
+        .from("categories")
+        .select("*")
+        .eq("user_id", user.id)
+        .in("type", ["investment", "business"])
+        .order("name", { ascending: true }),
     ]);
 
   if (!asset) notFound();
@@ -67,6 +73,7 @@ export default async function InvestmentAssetDetailPage({
     <InvestmentAssetDetailClient
       asset={asset as InvestmentAsset & { category?: Category }}
       investments={(investments || []) as Expense[]}
+      investmentCategories={(investmentCategories || []) as Category[]}
       valuations={(valuations || []) as InvestmentValuation[]}
       returns={(returns || []) as InvestmentReturn[]}
       totalInvested={totalInvested}

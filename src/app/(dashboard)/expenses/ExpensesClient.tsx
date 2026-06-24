@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -7,6 +7,8 @@ import {
   CalendarRange,
   ChevronDown,
   Filter,
+  HelpCircle,
+  Menu,
   Pencil,
   Plus,
   Search,
@@ -31,6 +33,7 @@ import {
   getTransactionTableName,
   TransactionType,
 } from "../transactions/transactionTables";
+import { useSidebarToggle, useToast } from "../DashboardLayoutClient";
 
 interface ExpensesClientProps {
   initialExpenses: (Expense & { category?: Category })[];
@@ -115,6 +118,14 @@ const ICON_MAP: Record<string, string> = {
   "more-horizontal": "⋯",
   circle: "⚪",
 };
+
+const EXPENSE_DESCRIPTION_MAX_LENGTH = 80;
+const INVESTMENT_ASSET_NAME_MAX_LENGTH = 80;
+const INVESTMENT_ASSET_DESCRIPTION_MAX_LENGTH = 120;
+const EXPENSE_NOTE_MAX_LENGTH = 200;
+const SEARCH_INPUT_MAX_LENGTH = 100;
+const RETURN_DESCRIPTION_MAX_LENGTH = 120;
+const RETURN_NOTE_MAX_LENGTH = 200;
 
 const TRANSACTION_CONFIG: Record<
   TransactionType,
@@ -237,6 +248,7 @@ function AddExpenseModal({
   const tableName = getTransactionTableName(transactionType);
   const isInvestment = transactionType === "investment";
   const isEdit = Boolean(expense);
+  const { showToast } = useToast();
   const transactionCategories = categories.filter(
     (category) => category.type === transactionType,
   );
@@ -332,6 +344,7 @@ function AddExpenseModal({
           .from("investment_assets")
           .update({
             category_id: categoryId || null,
+            description: assetDescription.trim() || null,
             is_business: isBusiness,
           })
           .eq("id", selectedAssetId);
@@ -361,11 +374,12 @@ function AddExpenseModal({
       : await supabase.from(tableName).insert(payload);
 
     if (dbError) {
-      setError("Có lỗi xảy ra. Vui lòng thử lại.");
+      setError("CÓ lỗi xảy ra. Vui lòng thử lại.");
       setLoading(false);
       return;
     }
 
+    showToast(isEdit ? "Chỉnh sửa thành công" : "Tạo mới thành công");
     onSuccess();
     onClose();
   };
@@ -459,6 +473,7 @@ function AddExpenseModal({
               }
               placeholder="0"
               required
+              maxLength={15}
               style={{
                 ...inputStyle,
                 paddingRight: "50px",
@@ -480,7 +495,7 @@ function AddExpenseModal({
             className="mb-2 block text-xs font-semibold uppercase tracking-wide"
             style={{ color: "rgba(226,255,232,0.5)" }}
           >
-            Mô tả
+            Tên giao dịch
           </label>
           <input
             type="text"
@@ -488,20 +503,43 @@ function AddExpenseModal({
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Ví dụ: ăn trưa, lương tháng, mua quỹ..."
             required
+            maxLength={EXPENSE_DESCRIPTION_MAX_LENGTH}
             style={inputStyle}
           />
         </div>
 
         {isInvestment && (
-          <>
+          <section
+            className="rounded-2xl border p-4 space-y-4"
+            style={{
+              borderColor: "rgba(45,154,75,0.18)",
+              background: "rgba(10,20,13,0.45)",
+            }}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <label
+                className="block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Khoản đầu tư
+              </label>
+              <button
+                type="button"
+                title="Hướng dẫn sử dụng"
+                aria-label="Hướng dẫn sử dụng"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+                style={{
+                  borderColor: "rgba(45,154,75,0.22)",
+                  color: "#e2ffe8",
+                  background: "rgba(45,154,75,0.08)",
+                }}
+              >
+                <HelpCircle className="h-4 w-4" />
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: "rgba(226,255,232,0.5)" }}
-                >
-                  Khoản đầu tư
-                </label>
                 <div className="relative">
                   <select
                     value={selectedAssetId}
@@ -576,8 +614,8 @@ function AddExpenseModal({
               </div>
             </div>
 
-            {selectedAssetId === "__new__" && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {selectedAssetId === "__new__" && (
                 <div>
                   <label
                     className="mb-2 block text-xs font-semibold uppercase tracking-wide"
@@ -590,30 +628,32 @@ function AddExpenseModal({
                     value={assetName}
                     onChange={(event) => setAssetName(event.target.value)}
                     placeholder="Ví dụ: Công ty ABC, Vàng SJC..."
+                    maxLength={INVESTMENT_ASSET_NAME_MAX_LENGTH}
                     style={inputStyle}
                   />
                 </div>
+              )}
 
-                <div>
-                  <label
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "rgba(226,255,232,0.5)" }}
-                  >
-                    Mô tả khoản đầu tư
-                  </label>
-                  <input
-                    type="text"
-                    value={assetDescription}
-                    onChange={(event) =>
-                      setAssetDescription(event.target.value)
-                    }
-                    placeholder="Mô tả ngắn..."
-                    style={inputStyle}
-                  />
-                </div>
+              <div
+                className={selectedAssetId === "__new__" ? "" : "sm:col-span-2"}
+              >
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.5)" }}
+                >
+                  Mô tả khoản đầu tư
+                </label>
+                <input
+                  type="text"
+                  value={assetDescription}
+                  onChange={(event) => setAssetDescription(event.target.value)}
+                  placeholder="Mô tả ngắn..."
+                  maxLength={INVESTMENT_ASSET_DESCRIPTION_MAX_LENGTH}
+                  style={inputStyle}
+                />
               </div>
-            )}
-          </>
+            </div>
+          </section>
         )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -681,6 +721,7 @@ function AddExpenseModal({
             onChange={(event) => setNote(event.target.value)}
             placeholder={config.notePlaceholder}
             rows={2}
+            maxLength={EXPENSE_NOTE_MAX_LENGTH}
             style={{ ...inputStyle, resize: "none" }}
           />
         </div>
@@ -727,11 +768,12 @@ function ExpenseActionButtons({
   expense: Expense;
   deleting: boolean;
   onEdit: (expense: Expense) => void;
-  onDelete: (id: string) => void;
+  onDelete: (expense: Expense) => void;
 }) {
   return (
     <div className="flex items-center gap-2">
       <button
+        type="button"
         onClick={() => onEdit(expense)}
         className={cn(
           "h-9 w-9 rounded-xl flex items-center justify-center transition-colors",
@@ -742,7 +784,7 @@ function ExpenseActionButtons({
         <Pencil className="h-4 w-4" />
       </button>
       <button
-        onClick={() => onDelete(expense.id)}
+        onClick={() => onDelete(expense)}
         disabled={deleting}
         className={cn(
           "h-9 w-9 rounded-xl flex items-center justify-center transition-colors",
@@ -763,19 +805,23 @@ function ExpenseActionButtons({
 function ExpenseMobileCard({
   expense,
   deleting,
+  selected,
   amountColor,
   amountPrefix,
   categoryFallback,
   onEdit,
+  onToggleSelect,
   onDelete,
 }: {
   expense: Expense & { category?: Category };
   deleting: boolean;
+  selected: boolean;
   amountColor: string;
   amountPrefix: string;
   categoryFallback: string;
   onEdit: (expense: Expense & { category?: Category }) => void;
-  onDelete: (id: string) => void;
+  onToggleSelect: (expense: Expense) => void;
+  onDelete: (expense: Expense) => void;
 }) {
   return (
     <div
@@ -785,76 +831,108 @@ function ExpenseMobileCard({
         borderColor: "rgba(45,154,75,0.08)",
       }}
     >
-      <div className="flex items-start gap-4">
-        <CategoryIcon
-          icon={expense.category?.icon || "circle"}
-          color={expense.category?.color || "#2D9A4B"}
-        />
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => onToggleSelect(expense)}
+          className={cn(
+            "mt-0.5 h-8 w-8 shrink-0 rounded-xl border flex items-center justify-center transition-colors",
+            selected ? "bg-primary/20" : "bg-white/5",
+          )}
+          style={{
+            borderColor: selected ? "#2D9A4B" : "rgba(45,154,75,0.15)",
+          }}
+          aria-label={selected ? "Bỏ chọn" : "Chọn"}
+        >
+          <div
+            className="h-3.5 w-3.5 rounded-sm border"
+            style={{
+              borderColor: selected ? "#2D9A4B" : "rgba(226,255,232,0.4)",
+              background: selected ? "#2D9A4B" : "transparent",
+            }}
+          />
+        </button>
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="break-words text-sm font-semibold leading-snug text-white">
+          <div className="flex items-start gap-3">
+            <CategoryIcon
+              icon={expense.category?.icon || "circle"}
+              color={expense.category?.color || "#2D9A4B"}
+            />
+
+            <div className="min-w-0 flex-1">
+              <p
+                className="break-words text-sm font-semibold leading-snug text-white"
+                style={{
+                  display: "-webkit-box",
+                  WebkitBoxOrient: "vertical",
+                  WebkitLineClamp: 3,
+                  overflow: "hidden",
+                }}
+              >
                 {expense.description}
               </p>
-              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                {expense.category ? (
-                  <span
-                    className="rounded-full px-2.5 py-1 text-xs"
-                    style={{
-                      background: `${expense.category.color}18`,
-                      color: expense.category.color,
-                      border: `1px solid ${expense.category.color}30`,
-                    }}
-                  >
-                    {expense.category.name}
-                  </span>
-                ) : (
-                  <span
-                    className="text-xs"
-                    style={{ color: "rgba(226,255,232,0.38)" }}
-                  >
-                    {categoryFallback}
-                  </span>
-                )}
 
+              <div className="mt-1 flex items-center justify-between gap-3">
                 <span
-                  className="flex items-center gap-1 text-xs"
-                  style={{ color: "rgba(226,255,232,0.32)" }}
+                  className="whitespace-nowrap text-base font-bold"
+                  style={{ color: amountColor }}
                 >
-                  <CalendarRange className="h-3 w-3" />
-                  {formatDate(expense.date)}
+                  {amountPrefix}
+                  {formatCurrency(expense.amount)}
                 </span>
               </div>
             </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {expense.category ? (
+              <span
+                className="inline-block max-w-full truncate whitespace-nowrap rounded-full px-2.5 py-1 text-xs"
+                style={{
+                  background: `${expense.category.color}18`,
+                  color: expense.category.color,
+                  border: `1px solid ${expense.category.color}30`,
+                }}
+              >
+                {expense.category.name}
+              </span>
+            ) : (
+              <span
+                className="text-xs"
+                style={{ color: "rgba(226,255,232,0.38)" }}
+              >
+                {categoryFallback}
+              </span>
+            )}
 
             <span
-              className="whitespace-nowrap text-sm font-bold"
-              style={{ color: amountColor }}
+              className="flex items-center gap-1 text-xs"
+              style={{ color: "rgba(226,255,232,0.32)" }}
             >
-              {amountPrefix}
-              {formatCurrency(expense.amount)}
+              <CalendarRange className="h-3 w-3" />
+              {formatDate(expense.date)}
             </span>
           </div>
 
           {expense.note && (
             <p
-              className="mt-3 break-words text-xs italic"
+              className="mt-2 break-words text-xs italic"
               style={{ color: "rgba(226,255,232,0.38)" }}
             >
               {expense.note}
             </p>
           )}
-
-          <div className="mt-4 flex items-center justify-end">
-            <ExpenseActionButtons
-              expense={expense}
-              deleting={deleting}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
-          </div>
         </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-end">
+        <ExpenseActionButtons
+          expense={expense}
+          deleting={deleting}
+          onEdit={onEdit}
+          onDelete={onDelete}
+        />
       </div>
     </div>
   );
@@ -863,29 +941,54 @@ function ExpenseMobileCard({
 function ExpenseTableRow({
   expense,
   deleting,
+  selected,
   amountColor,
   amountPrefix,
   categoryFallback,
   onEdit,
+  onToggleSelect,
   onDelete,
   isLast,
 }: {
   expense: Expense & { category?: Category };
   deleting: boolean;
+  selected: boolean;
   amountColor: string;
   amountPrefix: string;
   categoryFallback: string;
   onEdit: (expense: Expense & { category?: Category }) => void;
-  onDelete: (id: string) => void;
+  onToggleSelect: (expense: Expense) => void;
+  onDelete: (expense: Expense) => void;
   isLast?: boolean;
 }) {
   return (
     <div
-      className="grid grid-cols-[2.2fr_1fr_1.1fr_0.9fr_0.6fr] items-center gap-3 px-4 py-2.5"
+      className="grid grid-cols-[44px_2.2fr_1fr_1.1fr_0.9fr_0.6fr] items-center gap-3 px-4 py-2.5"
       style={{
         borderBottom: isLast ? "none" : "1px solid rgba(45,154,75,0.06)",
       }}
     >
+      <button
+        type="button"
+        onClick={() => onToggleSelect(expense)}
+        className={cn(
+          "h-8 w-8 rounded-xl border flex items-center justify-center transition-colors",
+          selected ? "bg-primary/20" : "bg-white/5",
+        )}
+        style={{
+          borderColor: selected ? "#2D9A4B" : "rgba(45,154,75,0.15)",
+        }}
+        aria-label={selected ? "Bỏ chọn" : "Chọn"}
+      >
+        <div
+          className="h-3.5 w-3.5 rounded-sm border"
+          style={{
+            borderColor: selected ? "#2D9A4B" : "rgba(226,255,232,0.4)",
+            background: selected ? "#2D9A4B" : "transparent",
+          }}
+        />
+      </button>
+
       <div className="flex min-w-0 items-start gap-4">
         <CategoryIcon
           icon={expense.category?.icon || "circle"}
@@ -893,7 +996,7 @@ function ExpenseTableRow({
         />
 
         <div className="min-w-0">
-          <p className="break-words text-sm font-semibold leading-snug text-white">
+          <p className="truncate text-sm font-semibold leading-snug text-white">
             {expense.description}
           </p>
           {expense.note && (
@@ -910,7 +1013,7 @@ function ExpenseTableRow({
       <div className="min-w-0">
         {expense.category ? (
           <span
-            className="inline-flex rounded-full px-2 py-0.5 text-[11px]"
+            className="inline-block max-w-full truncate whitespace-nowrap rounded-full px-2 py-0.5 text-[11px]"
             style={{
               background: `${expense.category.color}18`,
               color: expense.category.color,
@@ -934,7 +1037,10 @@ function ExpenseTableRow({
         {formatDate(expense.date)}
       </div>
 
-      <div className="text-right text-xs font-bold whitespace-nowrap" style={{ color: amountColor }}>
+      <div
+        className="text-right text-xs font-bold whitespace-nowrap"
+        style={{ color: amountColor }}
+      >
         {amountPrefix}
         {formatCurrency(expense.amount)}
       </div>
@@ -967,17 +1073,21 @@ export default function ExpensesClient({
 }: ExpensesClientProps) {
   const config = TRANSACTION_CONFIG[transactionType];
   const tableName = getTransactionTableName(transactionType);
+  const onMenuToggle = useSidebarToggle();
+  const { showToast } = useToast();
   const router = useRouter();
   const pathname = usePathname();
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
   const desktopTableRef = useRef<HTMLDivElement | null>(null);
   const desktopTableScrollRef = useRef<HTMLDivElement | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [editExpense, setEditExpense] = useState<
-    (Expense & {
-      category?: Category;
-      asset?: InvestmentAsset;
-      asset_id?: string | null;
-    }) | undefined
+    | (Expense & {
+        category?: Category;
+        asset?: InvestmentAsset;
+        asset_id?: string | null;
+      })
+    | undefined
   >();
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
@@ -986,6 +1096,7 @@ export default function ExpensesClient({
   const [selectedDateFrom, setSelectedDateFrom] = useState(filterDateFrom);
   const [selectedDateTo, setSelectedDateTo] = useState(filterDateTo);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedExpenseIds, setSelectedExpenseIds] = useState<string[]>([]);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -1003,6 +1114,14 @@ export default function ExpensesClient({
   useEffect(() => {
     setSelectedDateTo(filterDateTo);
   }, [filterDateTo]);
+
+  useEffect(() => {
+    setSelectedExpenseIds((current) =>
+      current.filter((id) =>
+        initialExpenses.some((expense) => expense.id === id),
+      ),
+    );
+  }, [initialExpenses]);
 
   const buildUrl = (updates: Record<string, string | number | undefined>) => {
     const params = new URLSearchParams();
@@ -1035,13 +1154,77 @@ export default function ExpensesClient({
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
-    setDeleteId(id);
+  const toggleExpenseSelection = (expense: Expense) => {
+    setSelectedExpenseIds((current) =>
+      current.includes(expense.id)
+        ? current.filter((id) => id !== expense.id)
+        : [...current, expense.id],
+    );
+  };
+
+  const clearExpenseSelection = () => {
+    setSelectedExpenseIds([]);
+  };
+
+  const handleBulkDelete = async (expensesToDelete: Expense[]) => {
+    if (expensesToDelete.length === 0) return;
+
+    const names =
+      expensesToDelete.length === 1
+        ? `"${expensesToDelete[0].description}"`
+        : `${expensesToDelete.length} mục đã chọn`;
+
+    if (!window.confirm(`Bạn có chắc muốn xóa ${names} không?`)) {
+      return;
+    }
+
     const supabase = createClient();
-    await supabase.from(tableName).delete().eq("id", id);
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .in(
+        "id",
+        expensesToDelete.map((expense) => expense.id),
+      );
+
+    if (error) {
+      return;
+    }
+
+    clearExpenseSelection();
+    showToast("Xóa thành công");
+    startTransition(() => router.refresh());
+  };
+
+  const handleDelete = async (expense: Expense) => {
+    if (
+      !window.confirm(`Bạn có chắc muốn xóa "${expense.description}" không?`)
+    ) {
+      return;
+    }
+    setDeleteId(expense.id);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .eq("id", expense.id);
+    if (error) {
+      setDeleteId(null);
+      return;
+    }
+    showToast("Xóa thành công");
     startTransition(() => router.refresh());
     setDeleteId(null);
   };
+
+  const currentExpenses = initialExpenses;
+  const selectedExpenses = currentExpenses.filter((expense) =>
+    selectedExpenseIds.includes(expense.id),
+  );
+  const allSelected =
+    currentExpenses.length > 0 &&
+    selectedExpenses.length === currentExpenses.length;
+  const hasSelectedExpenses = selectedExpenses.length > 0;
 
   const clearFilters = () => {
     setSearchInput("");
@@ -1059,7 +1242,6 @@ export default function ExpensesClient({
   const hasActiveFilters = activeFilterCount > 0;
   const showTotalAmount = hasActiveFilters && !isPending;
   const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const currentExpenses = initialExpenses;
   const currentCategories = categories.filter(
     (category) => category.type === transactionType,
   );
@@ -1075,6 +1257,7 @@ export default function ExpensesClient({
       block: "start",
       behavior: "auto",
     });
+    listScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
     desktopTableScrollRef.current?.scrollTo({ top: 0, behavior: "auto" });
   }, [currentPage, searchQuery, filterCategory, filterDateFrom, filterDateTo]);
 
@@ -1126,8 +1309,52 @@ export default function ExpensesClient({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar md:overflow-hidden sm:px-6">
+      <button
+        type="button"
+        onClick={onMenuToggle}
+        className="fixed left-4 top-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-colors lg:hidden"
+        style={{
+          background: "rgba(45,154,75,0.12)",
+          borderColor: "rgba(45,154,75,0.18)",
+          color: "rgba(226,255,232,0.85)",
+          boxShadow: "0 8px 25px rgba(0,0,0,0.25)",
+        }}
+        aria-label="Mở menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+
+      <div
+        ref={listScrollRef}
+        data-dashboard-scroll-root
+        className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar md:overflow-hidden sm:px-6"
+      >
         <div className="flex min-h-full flex-col md:h-full">
+          <div className="mb-3 flex items-center gap-3 lg:hidden">
+            <button
+              type="button"
+              onClick={onMenuToggle}
+              className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl border transition-colors"
+              style={{
+                background: "rgba(45,154,75,0.08)",
+                borderColor: "rgba(45,154,75,0.15)",
+                color: "rgba(226,255,232,0.7)",
+              }}
+              aria-label="Mở menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-white">
+                {transactionType === "investment"
+                  ? "Đầu tư"
+                  : transactionType === "income"
+                    ? "Thu nhập"
+                    : "Chi tiêu"}
+              </p>
+            </div>
+          </div>
+
           <div className="mb-3 shrink-0 space-y-2.5">
             <div
               className="rounded-2xl border p-2.5"
@@ -1161,6 +1388,7 @@ export default function ExpensesClient({
                         value={searchInput}
                         onChange={(event) => setSearchInput(event.target.value)}
                         placeholder={config.searchPlaceholder}
+                        maxLength={SEARCH_INPUT_MAX_LENGTH}
                         style={filterInputStyle}
                       />
                     </div>
@@ -1289,6 +1517,21 @@ export default function ExpensesClient({
               </div>
 
               <div className="flex self-start items-center gap-2 sm:self-auto">
+                {hasSelectedExpenses && (
+                  <button
+                    type="button"
+                    onClick={() => handleBulkDelete(selectedExpenses)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors"
+                    style={{
+                      background: "rgba(239,68,68,0.12)",
+                      borderColor: "rgba(239,68,68,0.24)",
+                      color: "#fecaca",
+                    }}
+                  >
+                    Xóa đã chọn ({selectedExpenses.length})
+                  </button>
+                )}
+
                 {transactionType === "investment" && (
                   <Link
                     href="/investment-portfolio"
@@ -1341,16 +1584,35 @@ export default function ExpensesClient({
 
           {currentExpenses.length > 0 ? (
             <>
+              <div
+                className="mb-3 flex items-center justify-between rounded-2xl border px-4 py-3 md:hidden"
+                style={{
+                  background: "rgba(10,20,13,0.58)",
+                  borderColor: "rgba(45,154,75,0.08)",
+                }}
+              >
+                <div>
+                  <p
+                    className="text-xs font-medium"
+                    style={{ color: "rgba(226,255,232,0.5)" }}
+                  >
+                    Trang {currentPage} / {totalPages}
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-3 md:hidden">
                 {currentExpenses.map((expense) => (
                   <ExpenseMobileCard
                     key={expense.id}
                     expense={expense}
                     deleting={deleteId === expense.id}
+                    selected={selectedExpenseIds.includes(expense.id)}
                     amountColor={config.amountColor}
                     amountPrefix={config.amountPrefix}
                     categoryFallback={config.categoryFallback}
                     onEdit={handleEdit}
+                    onToggleSelect={toggleExpenseSelection}
                     onDelete={handleDelete}
                   />
                 ))}
@@ -1420,7 +1682,7 @@ export default function ExpensesClient({
                   className="min-h-0 flex-1 overflow-y-auto custom-scrollbar"
                 >
                   <div
-                    className="sticky top-0 z-10 grid grid-cols-[2.2fr_1fr_1.1fr_0.9fr_0.6fr] gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wide"
+                    className="sticky top-0 z-10 grid grid-cols-[44px_2.2fr_1fr_1.1fr_0.9fr_0.6fr] gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wide"
                     style={{
                       color: "rgba(226,255,232,0.32)",
                       background: "rgba(10,20,13,0.96)",
@@ -1428,6 +1690,38 @@ export default function ExpensesClient({
                       backdropFilter: "blur(16px)",
                     }}
                   >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedExpenseIds(
+                          allSelected
+                            ? []
+                            : currentExpenses.map((expense) => expense.id),
+                        )
+                      }
+                      className="h-8 w-8 rounded-xl border flex items-center justify-center transition-colors"
+                      style={{
+                        borderColor: allSelected
+                          ? "#2D9A4B"
+                          : "rgba(45,154,75,0.15)",
+                        background: allSelected
+                          ? "rgba(45,154,75,0.18)"
+                          : "rgba(255,255,255,0.04)",
+                      }}
+                      aria-label={
+                        allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"
+                      }
+                    >
+                      <div
+                        className="h-3.5 w-3.5 rounded-sm border"
+                        style={{
+                          borderColor: allSelected
+                            ? "#2D9A4B"
+                            : "rgba(226,255,232,0.4)",
+                          background: allSelected ? "#2D9A4B" : "transparent",
+                        }}
+                      />
+                    </button>
                     <div>{config.tableColumnLabel}</div>
                     <div>Danh mục</div>
                     <div>Ngày</div>
@@ -1440,6 +1734,7 @@ export default function ExpensesClient({
                       key={expense.id}
                       expense={expense}
                       deleting={deleteId === expense.id}
+                      selected={selectedExpenseIds.includes(expense.id)}
                       amountColor={config.amountColor}
                       amountPrefix={config.amountPrefix}
                       categoryFallback={config.categoryFallback}
@@ -1448,6 +1743,7 @@ export default function ExpensesClient({
                         expense.id
                       }
                       onEdit={handleEdit}
+                      onToggleSelect={toggleExpenseSelection}
                       onDelete={handleDelete}
                     />
                   ))}
@@ -1492,6 +1788,58 @@ export default function ExpensesClient({
               )}
             </div>
           )}
+
+          {totalPages > 1 && (
+            <div
+              className="mt-3 flex flex-col items-start gap-3 rounded-2xl border px-4 py-3 md:hidden sm:flex-row sm:items-center sm:justify-between"
+              style={{
+                background: "rgba(10,20,13,0.58)",
+                borderColor: "rgba(45,154,75,0.08)",
+              }}
+            >
+              <div className="min-w-0">
+                <p
+                  className="text-xs"
+                  style={{ color: "rgba(226,255,232,0.45)" }}
+                >
+                  Trang {currentPage} / {totalPages}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 self-stretch sm:self-auto">
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate({ page: Math.max(1, currentPage - 1) })
+                  }
+                  disabled={currentPage <= 1}
+                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    borderColor: "rgba(45,154,75,0.14)",
+                    color: "#e2ffe8",
+                  }}
+                >
+                  Trước
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate({ page: Math.min(totalPages, currentPage + 1) })
+                  }
+                  disabled={currentPage >= totalPages}
+                  className="rounded-xl border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    borderColor: "rgba(45,154,75,0.14)",
+                    color: "#e2ffe8",
+                  }}
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1509,6 +1857,27 @@ export default function ExpensesClient({
       >
         <Plus className="h-6 w-6 text-white" />
       </button>
+
+      {hasSelectedExpenses && (
+        <button
+          type="button"
+          onClick={() => handleBulkDelete(selectedExpenses)}
+          className="fixed bottom-6 left-6 z-30 inline-flex items-center gap-2 rounded-2xl border px-4 py-3 shadow-2xl lg:hidden"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(239,68,68,0.95), rgba(127,29,29,0.95))",
+            borderColor: "rgba(239,68,68,0.45)",
+            color: "#fff1f2",
+            boxShadow: "0 8px 25px rgba(239,68,68,0.28)",
+          }}
+          aria-label={`Xóa ${selectedExpenses.length} mục đã chọn`}
+        >
+          <Trash2 className="h-4 w-4" />
+          <span className="text-xs font-semibold">
+            Xóa ({selectedExpenses.length})
+          </span>
+        </button>
+      )}
 
       {showModal && (
         <AddExpenseModal

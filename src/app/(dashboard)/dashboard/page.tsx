@@ -2,7 +2,21 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import DashboardClient from "./DashboardClient";
 
-export default async function DashboardPage() {
+type DashboardSearchParams = {
+  month?: string | string[];
+  year?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: DashboardSearchParams | Promise<DashboardSearchParams>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -10,11 +24,21 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login");
 
+  const resolvedSearchParams = await Promise.resolve(searchParams);
   const now = new Date();
-  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const selectedMonth = Math.min(
+    12,
+    Math.max(1, Number.parseInt(firstParam(resolvedSearchParams?.month), 10) || currentMonth),
+  );
+  const selectedYear =
+    Number.parseInt(firstParam(resolvedSearchParams?.year), 10) || currentYear;
+
+  const firstDay = new Date(selectedYear, selectedMonth - 1, 1)
     .toISOString()
     .split("T")[0];
-  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+  const lastDay = new Date(selectedYear, selectedMonth, 0)
     .toISOString()
     .split("T")[0];
 
@@ -80,6 +104,8 @@ export default async function DashboardPage() {
   return (
     <DashboardClient
       userName={user.user_metadata?.full_name}
+      selectedMonth={selectedMonth}
+      selectedYear={selectedYear}
       totalExpense={totalExpense}
       totalIncome={totalIncome}
       totalInvestment={totalInvestment}

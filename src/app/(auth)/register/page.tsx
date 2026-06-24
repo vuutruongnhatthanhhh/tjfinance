@@ -1,12 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Banknote, UserPlus, Mail } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 type Step = "form" | "sent";
 
+function GoogleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+      <path fill="#4285F4" d="M21.6 12.23c0-.67-.06-1.3-.18-1.92H12v3.63h5.36a4.59 4.59 0 0 1-1.99 3.02v2.5h3.22c1.88-1.73 3.01-4.28 3.01-7.23Z" />
+      <path fill="#34A853" d="M12 22c2.7 0 4.97-.9 6.63-2.44l-3.22-2.5c-.9.61-2.05.98-3.41.98-2.61 0-4.82-1.76-5.61-4.13H3.08v2.58A10 10 0 0 0 12 22Z" />
+      <path fill="#FBBC05" d="M6.39 13.91A6.01 6.01 0 0 1 6.06 12c0-.66.11-1.3.33-1.91V7.51H3.08A10 10 0 0 0 2 12c0 1.61.39 3.14 1.08 4.49l3.31-2.58Z" />
+      <path fill="#EA4335" d="M12 5.97c1.47 0 2.79.51 3.83 1.52l2.87-2.87A9.7 9.7 0 0 0 12 2a10 10 0 0 0-8.92 5.51l3.31 2.58C7.18 7.73 9.39 5.97 12 5.97Z" />
+    </svg>
+  );
+}
+
 export default function RegisterPage() {
+  const supabase = useMemo(() => createClient(), []);
   const [step, setStep] = useState<Step>("form");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -14,6 +27,7 @@ export default function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -50,6 +64,27 @@ export default function RegisterPage() {
       setError("Không thể kết nối đến máy chủ. Vui lòng thử lại.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleRegister = async () => {
+    setGoogleLoading(true);
+    setError("");
+
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : undefined;
+
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${origin}/auth/callback?next=/dashboard`,
+      },
+    });
+
+    if (authError) {
+      setError("Không thể đăng ký bằng Google. Vui lòng thử lại.");
+      setGoogleLoading(false);
+      return;
     }
   };
 
@@ -183,6 +218,25 @@ export default function RegisterPage() {
           </div>
         )}
 
+        <button
+          type="button"
+          onClick={handleGoogleRegister}
+          disabled={loading || googleLoading}
+          className="mb-4 flex w-full items-center justify-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
+          style={{
+            background: "rgba(255,255,255,0.04)",
+            borderColor: "rgba(45,154,75,0.18)",
+            color: "#e2ffe8",
+          }}
+        >
+          {googleLoading ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          ) : (
+            <GoogleIcon />
+          )}
+          Đăng ký bằng Google
+        </button>
+
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
             <label
@@ -197,6 +251,7 @@ export default function RegisterPage() {
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Nguyễn Văn A"
               required
+              maxLength={50}
               style={inputStyle}
             />
           </div>
@@ -214,6 +269,7 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="email@example.com"
               required
+              maxLength={254}
               style={inputStyle}
             />
           </div>
@@ -232,6 +288,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Tối thiểu 6 ký tự"
                 required
+                maxLength={128}
                 style={{ ...inputStyle, paddingRight: "48px" }}
               />
               <button
@@ -262,6 +319,7 @@ export default function RegisterPage() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Nhập lại mật khẩu"
               required
+              maxLength={128}
               style={inputStyle}
             />
           </div>

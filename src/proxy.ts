@@ -3,6 +3,17 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
+  const pathname = request.nextUrl.pathname;
+  const referer = request.headers.get("referer");
+  const refererPathname = referer
+    ? (() => {
+        try {
+          return new URL(referer).pathname;
+        } catch {
+          return "";
+        }
+      })()
+    : "";
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,11 +40,18 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isResetPasswordPage = pathname.startsWith("/reset-password");
+  const isLoginFromResetPassword =
+    pathname.startsWith("/login") &&
+    refererPathname.startsWith("/reset-password");
   const isAuthPage =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register") ||
-    request.nextUrl.pathname.startsWith("/verify-email") ||
-    request.nextUrl.pathname.startsWith("/api/auth/");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    isResetPasswordPage ||
+    pathname.startsWith("/auth/callback") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/verify-email") ||
+    pathname.startsWith("/api/auth/");
 
   if (!user && !isAuthPage) {
     const url = request.nextUrl.clone();
@@ -41,7 +59,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
+  if (
+    user &&
+    isAuthPage &&
+    !isResetPasswordPage &&
+    !isLoginFromResetPassword
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

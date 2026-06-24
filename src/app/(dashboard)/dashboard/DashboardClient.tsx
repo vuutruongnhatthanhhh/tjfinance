@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import {
   ArrowRight,
@@ -18,6 +20,8 @@ import { useSidebarToggle } from "../DashboardLayoutClient";
 
 interface DashboardClientProps {
   userName?: string;
+  selectedMonth: number;
+  selectedYear: number;
   totalExpense: number;
   totalIncome: number;
   totalInvestment: number;
@@ -45,21 +49,26 @@ function getGreeting() {
   return "Chào buổi tối";
 }
 
-function getMonthLabel() {
+function formatMonthYear(month: number, year: number) {
   return new Intl.DateTimeFormat("vi-VN", {
     month: "long",
     year: "numeric",
-  }).format(new Date());
+  }).format(new Date(year, month - 1, 1));
 }
 
 export default function DashboardClient({
   userName,
+  selectedMonth,
+  selectedYear,
   totalExpense,
   totalIncome,
   totalInvestment,
   recentExpenses,
   expensesByCategory,
 }: DashboardClientProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isPending, startTransition] = useTransition();
   const onMenuToggle = useSidebarToggle();
   const estimatedBalance = totalIncome - totalExpense - totalInvestment;
   const estimatedBalanceColor =
@@ -75,15 +84,44 @@ export default function DashboardClient({
     color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
   }));
 
+  const monthOptions = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) => ({
+        value: index + 1,
+        label: new Intl.DateTimeFormat("vi-VN", { month: "long" }).format(
+          new Date(2024, index, 1),
+        ),
+      })),
+    [],
+  );
+
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 7 }, (_, index) => currentYear - 3 + index);
+  }, []);
+
+  const updatePeriod = (month: number, year: number) => {
+    const params = new URLSearchParams();
+    params.set("month", String(month));
+    params.set("year", String(year));
+
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`);
+    });
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <Header
         onMenuToggle={onMenuToggle}
         title="Tổng quan"
-        subtitle={getMonthLabel()}
+        subtitle={formatMonthYear(selectedMonth, selectedYear)}
       />
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar sm:px-6">
+      <div
+        data-dashboard-scroll-root
+        className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar sm:px-6"
+      >
         <div className="mb-6 animate-fade-in">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
             {getGreeting()},{" "}
@@ -91,12 +129,101 @@ export default function DashboardClient({
               {userName?.split(" ").pop() || "bạn"}
             </span>
           </h2>
-          <p
-            className="mt-1 text-sm"
-            style={{ color: "rgba(226,255,232,0.4)" }}
-          >
-            Đây là tổng quan tài chính tháng này của bạn
+          <p className="mt-1 text-sm" style={{ color: "rgba(226,255,232,0.4)" }}>
+            Đây là tổng quan tài chính theo tháng bạn chọn
           </p>
+        </div>
+
+        <div
+          className="mb-6 rounded-2xl border p-4"
+          style={{
+            background: "rgba(10,20,13,0.7)",
+            borderColor: "rgba(45,154,75,0.12)",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.45)" }}
+                >
+                  Tháng
+                </label>
+                <select
+                  value={selectedMonth}
+                  onChange={(event) =>
+                    updatePeriod(Number(event.target.value), selectedYear)
+                  }
+                  className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                  style={{
+                    background: "rgba(5,15,8,0.8)",
+                    borderColor: "rgba(45,154,75,0.18)",
+                    color: "#e2ffe8",
+                  }}
+                >
+                  {monthOptions.map((option) => (
+                    <option
+                      key={option.value}
+                      value={option.value}
+                      style={{ background: "#0a1a0f" }}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.45)" }}
+                >
+                  Năm
+                </label>
+                <select
+                  value={selectedYear}
+                  onChange={(event) =>
+                    updatePeriod(selectedMonth, Number(event.target.value))
+                  }
+                  className="w-full rounded-xl border px-4 py-3 text-sm outline-none"
+                  style={{
+                    background: "rgba(5,15,8,0.8)",
+                    borderColor: "rgba(45,154,75,0.18)",
+                    color: "#e2ffe8",
+                  }}
+                >
+                  {yearOptions.map((year) => (
+                    <option
+                      key={year}
+                      value={year}
+                      style={{ background: "#0a1a0f" }}
+                    >
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date();
+                updatePeriod(now.getMonth() + 1, now.getFullYear());
+              }}
+              className="rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
+              style={{
+                background: "rgba(255,255,255,0.04)",
+                borderColor: "rgba(45,154,75,0.14)",
+                color: "#e2ffe8",
+              }}
+              disabled={isPending}
+            >
+              Tháng hiện tại
+            </button>
+          </div>
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -265,17 +392,13 @@ export default function DashboardClient({
                       <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
                         {expense.description}
                       </p>
-                      <div className="mt-0.5 flex items-center gap-2">
+                      <div className="mt-1 space-y-0.5">
                         <span
-                          className="text-xs"
+                          className="block truncate text-xs"
                           style={{ color: "rgba(226,255,232,0.4)" }}
                         >
                           {expense.category?.name}
                         </span>
-                        <span
-                          className="h-1 w-1 rounded-full"
-                          style={{ background: "rgba(226,255,232,0.2)" }}
-                        />
                         <span
                           className="flex items-center gap-1 text-xs"
                           style={{ color: "rgba(226,255,232,0.3)" }}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDownCircle,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import AccountSettingsModal from "./AccountSettingsModal";
 
 interface NavItem {
   href: string;
@@ -55,6 +57,7 @@ interface SidebarProps {
   onClose: () => void;
   userEmail?: string;
   userName?: string;
+  showToast: (message: string, type?: "success" | "error") => void;
 }
 
 export default function Sidebar({
@@ -62,9 +65,11 @@ export default function Sidebar({
   onClose,
   userEmail,
   userName,
+  showToast,
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [showAccountModal, setShowAccountModal] = useState(false);
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -135,9 +140,19 @@ export default function Sidebar({
       >
         <div
           className="rounded-xl px-4 py-3"
+          role="button"
+          tabIndex={0}
+          onClick={() => setShowAccountModal(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setShowAccountModal(true);
+            }
+          }}
           style={{
             background: "rgba(45,154,75,0.06)",
             border: "1px solid rgba(45,154,75,0.1)",
+            cursor: "pointer",
           }}
         >
           <div className="flex items-center gap-3">
@@ -203,12 +218,6 @@ export default function Sidebar({
           </div>
 
           <nav className="flex-1 space-y-1 overflow-x-hidden overflow-y-auto px-2 py-4 custom-scrollbar">
-            <div
-              className="mb-3 max-w-0 overflow-hidden whitespace-nowrap px-2.5 text-xs font-semibold uppercase tracking-wider opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100"
-              style={{ color: "rgba(226,255,232,0.3)" }}
-            >
-              Menu
-            </div>
             {navItems.map((item) => {
               const isActive =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -243,9 +252,19 @@ export default function Sidebar({
           >
             <div
               className="overflow-hidden rounded-xl"
+              role="button"
+              tabIndex={0}
+              onClick={() => setShowAccountModal(true)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setShowAccountModal(true);
+                }
+              }}
               style={{
                 background: "rgba(45,154,75,0.06)",
                 border: "1px solid rgba(45,154,75,0.1)",
+                cursor: "pointer",
               }}
             >
               <div className="flex justify-center py-2 group-hover/sidebar:hidden">
@@ -319,6 +338,16 @@ export default function Sidebar({
       >
         {mobileSidebarContent}
       </aside>
+
+      {showAccountModal && (
+        <AccountSettingsModal
+          userEmail={userEmail}
+          userName={userName}
+          showToast={showToast}
+          onSaved={() => router.refresh()}
+          onClose={() => setShowAccountModal(false)}
+        />
+      )}
     </>
   );
 }

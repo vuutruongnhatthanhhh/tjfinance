@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Landmark, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  Landmark,
+  PiggyBank,
+  TrendingDown,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
 import Header from "@/components/layout/Header";
 import StatCard from "@/components/ui/StatCard";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -34,7 +41,25 @@ export default function InvestmentPortfolioClient({
         subtitle={`${summaries.length} khoản đầu tư`}
       />
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar sm:px-6">
+      <div
+        data-dashboard-scroll-root
+        className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar sm:px-6"
+      >
+        <div className="mb-4">
+          <Link
+            href="/investments"
+            className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors"
+            style={{
+              background: "rgba(255,255,255,0.04)",
+              borderColor: "rgba(45,154,75,0.14)",
+              color: "#e2ffe8",
+            }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Quay lại giao dịch đầu tư
+          </Link>
+        </div>
+
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="Tổng vốn đầu tư"

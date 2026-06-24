@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 interface Particle {
   id: number;
@@ -10,19 +10,19 @@ interface Particle {
   delay: number;
 }
 
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  const [particles, setParticles] = useState<Particle[]>([]);
+function generateParticles() {
+  return Array.from({ length: 20 }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    size: Math.random() * 4 + 1,
+    duration: Math.random() * 15 + 10,
+    // Negative delay makes each particle appear mid-flight immediately.
+    delay: -Math.random() * 10,
+  }));
+}
 
-  useEffect(() => {
-    const generated = Array.from({ length: 20 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      size: Math.random() * 4 + 1,
-      duration: Math.random() * 15 + 10,
-      delay: Math.random() * 10,
-    }));
-    setParticles(generated);
-  }, []);
+export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const [particles] = useState<Particle[]>(() => generateParticles());
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-mystic-dark dark:bg-mystic-dark">

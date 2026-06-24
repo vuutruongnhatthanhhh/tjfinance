@@ -40,7 +40,10 @@ function escapeSearchValue(value: string): string {
 }
 
 export async function getTransactionPageData(
-  searchParams: TransactionSearchParams | Promise<TransactionSearchParams> | undefined,
+  searchParams:
+    | TransactionSearchParams
+    | Promise<TransactionSearchParams>
+    | undefined,
   transactionType: TransactionType,
 ): Promise<TransactionPageData> {
   const supabase = await createClient();

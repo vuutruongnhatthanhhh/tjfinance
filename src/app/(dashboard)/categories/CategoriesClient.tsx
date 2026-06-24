@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { Category } from "@/types";
 import Header from "@/components/layout/Header";
-import { useSidebarToggle } from "../DashboardLayoutClient";
+import { useSidebarToggle, useToast } from "../DashboardLayoutClient";
 import { cn } from "@/lib/utils";
 
 interface CategoriesClientProps {
@@ -114,32 +114,54 @@ const ICON_MAP: Record<string, string> = Object.fromEntries(
   ICONS.map(({ id, emoji }) => [id, emoji])
 );
 
+const CATEGORY_NAME_MAX_LENGTH = 50;
+
 interface CategoryModalProps {
   userId: string;
   category?: Category;
+  initialType: "expense" | "income" | "investment";
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalProps) {
+function CategoryModal({
+  userId,
+  category,
+  initialType,
+  onClose,
+  onSuccess,
+}: CategoryModalProps) {
   const [name, setName] = useState(category?.name || "");
   const [icon, setIcon] = useState(category?.icon || "more-horizontal");
   const [color, setColor] = useState(category?.color || "#2D9A4B");
-  const [type, setType] = useState<"expense" | "income" | "investment">(category?.type || "expense");
+  const [type, setType] = useState<"expense" | "income" | "investment">(
+    category?.type && category.type !== "business" ? category.type : initialType,
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const isEdit = !!category;
+  const { showToast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) { setError("Vui lòng nhập tên danh mục."); return; }
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      setError("Vui lòng nhập tên danh mục.");
+      return;
+    }
+
+    if (trimmedName.length > CATEGORY_NAME_MAX_LENGTH) {
+      setError(`Tên danh mục không được vượt quá ${CATEGORY_NAME_MAX_LENGTH} ký tự.`);
+      return;
+    }
 
     setLoading(true);
     setError("");
     const supabase = createClient();
 
-    const payload = { name: name.trim(), icon, color, type };
+    const payload = { name: trimmedName, icon, color, type };
 
     const { error: dbError } = isEdit
       ? await supabase.from("categories").update(payload).eq("id", category!.id)
@@ -151,6 +173,7 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
       return;
     }
 
+    showToast(isEdit ? "Chỉnh sửa thành công" : "Tạo mới thành công");
     onSuccess();
     onClose();
   };
@@ -241,11 +264,19 @@ function CategoryModal({ userId, category, onClose, onSuccess }: CategoryModalPr
             <input
               type="text"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (error) setError("");
+              }}
               placeholder="Ví dụ: Ăn uống, Du lịch..."
               required
+              maxLength={CATEGORY_NAME_MAX_LENGTH}
               style={inputStyle}
             />
+            <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "rgba(226,255,232,0.38)" }}>
+              <span>Tối đa {CATEGORY_NAME_MAX_LENGTH} ký tự</span>
+              <span>{name.trim().length}/{CATEGORY_NAME_MAX_LENGTH}</span>
+            </div>
           </div>
 
           {/* Color */}
@@ -361,7 +392,10 @@ export default function CategoriesClient({
         subtitle={`${initialCategories.length} danh mục`}
       />
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4">
+      <div
+        data-dashboard-scroll-root
+        className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4"
+      >
         {/* Tabs */}
         <div className="flex gap-2 mb-5 p-1 rounded-xl"
           style={{ background: "rgba(10,20,13,0.7)", border: "1px solid rgba(45,154,75,0.1)" }}>
@@ -496,6 +530,7 @@ export default function CategoriesClient({
         <CategoryModal
           userId={userId}
           category={editCategory}
+          initialType={activeTab}
           onClose={() => setShowModal(false)}
           onSuccess={() => startTransition(() => router.refresh())}
         />
