@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { CheckCircle2, ChevronUp, XCircle } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
@@ -32,6 +32,31 @@ export default function DashboardLayoutClient({
   };
 
   const toastApi = useMemo(() => ({ showToast }), []);
+
+  useLayoutEffect(() => {
+    const resetScrollPosition = () => {
+      const roots = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-dashboard-scroll-root]"),
+      );
+
+      roots.forEach((element) => {
+        element.scrollTo({ top: 0, behavior: "auto" });
+      });
+
+      window.scrollTo({ top: 0, behavior: "auto" });
+      setShowBackToTop(false);
+    };
+
+    resetScrollPosition();
+
+    const frameId = window.requestAnimationFrame(resetScrollPosition);
+    const timerId = window.setTimeout(resetScrollPosition, 0);
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(timerId);
+    };
+  }, [pathname]);
 
   useEffect(() => {
     const updateVisibility = () => {

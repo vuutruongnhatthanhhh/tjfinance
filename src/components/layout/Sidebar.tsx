@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDownCircle,
@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   Tag,
+  Wallet,
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -46,6 +47,11 @@ const navItems: NavItem[] = [
     icon: <Landmark className="h-5 w-5" />,
   },
   {
+    href: "/investment-portfolio",
+    label: "Danh má»¥c Ä‘áº§u tÆ°",
+    icon: <Wallet className="h-5 w-5" />,
+  },
+  {
     href: "/categories",
     label: "Danh mục",
     icon: <Tag className="h-5 w-5" />,
@@ -70,6 +76,11 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
+
+  useEffect(() => {
+    router.prefetch("/investments");
+    router.prefetch("/investment-portfolio");
+  }, [router]);
 
   const handleLogout = async () => {
     const supabase = createClient();

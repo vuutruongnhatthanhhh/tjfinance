@@ -2,7 +2,28 @@
   "permissions": {
     "allow": [
       "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes --force)",
-      "PowerShell(Head -30)"
+      "PowerShell(Head -30)",
+      "Bash(git -C \"d:/dev/tjfinance\" status)",
+      "Bash(git -C \"d:/dev/tjfinance\" log --oneline -5)",
+      "Bash(git -C \"d:/dev/tjfinance\" diff src/proxy.ts \"src/app/\\(auth\\)/register/page.tsx\")",
+      "Bash(git -C \"d:/dev/tjfinance\" add src/proxy.ts \"src/app/\\(auth\\)/register/page.tsx\")",
+      "Bash(git -C d:/dev/tjfinance commit -m 'fix: exclude auth API routes and verify-email from proxy redirect *)",
+      "Bash(git -C \"d:/dev/tjfinance\" push origin main)",
+      "Bash(git -C \"d:/dev/tjfinance\" add src/app/api/auth/register/route.ts)",
+      "Bash(git -C d:/dev/tjfinance commit -m 'fix: add specific error messages per step in register API route *)",
+      "Bash(git -C \"d:/dev/tjfinance\" commit -m \"fix: reduce token length to 64 chars to fit VARCHAR\\(64\\) column\")",
+      "Bash(git -C \"d:/dev/tjfinance\" add src/lib/emailTemplates.ts)",
+      "Bash(git -C d:/dev/tjfinance commit -m 'style: simplify verification email template to match tjguard-app style *)",
+      "Bash(git -C \"d:/dev/tjfinance\" add src/app/api/auth/verify-email/route.ts migrations/0005_drop_used_at_column.sql)",
+      "Bash(git -C d:/dev/tjfinance commit -m 'refactor: delete email verification token after use instead of marking used *)",
+      "Bash(git -C \"d:/dev/tjfinance\" add src/app/api/auth/verify-email/route.ts)",
+      "Bash(git -C \"d:/dev/tjfinance\" commit -m \"fix: remove used_at filter from verify-email query after column was dropped\")",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git commit *)",
+      "Bash(node -e \"const pkg = require\\('./node_modules/tailwindcss/package.json'\\); console.log\\(pkg.version\\)\")",
+      "PowerShell(npx tsc --noEmit 2>&1)"
     ]
   }
 }

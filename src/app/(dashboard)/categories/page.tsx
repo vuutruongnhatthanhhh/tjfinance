@@ -8,7 +8,13 @@ export default async function CategoriesPage() {
 
   if (!user) redirect("/login");
 
-  const [{ data: categories }, { data: expenseCounts }, { data: incomeCounts }, { data: investmentCounts }] = await Promise.all([
+  const [
+    { data: categories },
+    { data: expenseCounts },
+    { data: incomeCounts },
+    { data: investmentCounts },
+    { data: investmentReturnCounts },
+  ] = await Promise.all([
     supabase
       .from("categories")
       .select("*")
@@ -27,10 +33,19 @@ export default async function CategoriesPage() {
       .from("investments")
       .select("category_id")
       .eq("user_id", user.id),
+    supabase
+      .from("investment_returns")
+      .select("category_id")
+      .eq("user_id", user.id),
   ]);
 
   const counts: Record<string, number> = {};
-  [...(expenseCounts || []), ...(incomeCounts || []), ...(investmentCounts || [])]
+  [
+    ...(expenseCounts || []),
+    ...(incomeCounts || []),
+    ...(investmentCounts || []),
+    ...(investmentReturnCounts || []),
+  ]
     .forEach((item) => {
       if (item.category_id) counts[item.category_id] = (counts[item.category_id] || 0) + 1;
     });

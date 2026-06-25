@@ -12,7 +12,12 @@ export interface Category {
   name: string;
   icon: string;
   color: string;
-  type: "expense" | "income" | "investment" | "business";
+  type:
+    | "expense"
+    | "income"
+    | "investment"
+    | "business"
+    | "investment_return";
   created_at: string;
   updated_at: string;
 }
@@ -62,12 +67,14 @@ export interface InvestmentReturn {
   id: string;
   asset_id: string;
   user_id: string;
+  category_id?: string | null;
   amount: number;
   description: string;
   note?: string | null;
   date: string;
   created_at: string;
   updated_at: string;
+  category?: Category;
 }
 
 export interface DashboardStats {

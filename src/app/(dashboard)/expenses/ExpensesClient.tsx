@@ -1100,6 +1100,12 @@ export default function ExpensesClient({
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
+    if (transactionType === "investment") {
+      router.prefetch("/investment-portfolio");
+    }
+  }, [router, transactionType]);
+
+  useEffect(() => {
     setSearchInput(searchQuery);
   }, [searchQuery]);
 

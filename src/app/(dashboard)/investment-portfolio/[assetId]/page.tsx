@@ -41,7 +41,7 @@ export default async function InvestmentAssetDetailPage({
         .order("created_at", { ascending: false }),
       supabase
         .from("investment_returns")
-        .select("*")
+        .select("*, category:categories(*)")
         .eq("user_id", user.id)
         .eq("asset_id", assetId)
         .order("date", { ascending: false }),
@@ -49,7 +49,7 @@ export default async function InvestmentAssetDetailPage({
         .from("categories")
         .select("*")
         .eq("user_id", user.id)
-        .in("type", ["investment", "business"])
+        .in("type", ["investment", "business", "investment_return"])
         .order("name", { ascending: true }),
     ]);
 

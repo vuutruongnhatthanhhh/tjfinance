@@ -116,10 +116,26 @@ const ICON_MAP: Record<string, string> = Object.fromEntries(
 
 const CATEGORY_NAME_MAX_LENGTH = 50;
 
+const CATEGORY_TYPE_LABELS: Record<
+  "expense" | "income" | "investment" | "business" | "investment_return",
+  string
+> = {
+  expense: "Chi tiêu",
+  income: "Thu nhập",
+  investment: "Đầu tư",
+  business: "Rót vốn (business)",
+  investment_return: "Thu tiền về (business)",
+};
+
 interface CategoryModalProps {
   userId: string;
   category?: Category;
-  initialType: "expense" | "income" | "investment";
+  initialType:
+    | "expense"
+    | "income"
+    | "investment"
+    | "business"
+    | "investment_return";
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -134,8 +150,10 @@ function CategoryModal({
   const [name, setName] = useState(category?.name || "");
   const [icon, setIcon] = useState(category?.icon || "more-horizontal");
   const [color, setColor] = useState(category?.color || "#2D9A4B");
-  const [type, setType] = useState<"expense" | "income" | "investment">(
-    category?.type && category.type !== "business" ? category.type : initialType,
+  const [type, setType] = useState<
+    "expense" | "income" | "investment" | "business" | "investment_return"
+  >(
+    category?.type || initialType,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -231,12 +249,22 @@ function CategoryModal({
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
               style={{ color: "rgba(226,255,232,0.5)" }}>Loại</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(["expense", "income", "investment"] as const).map((t) => {
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              {(
+                [
+                  "expense",
+                  "income",
+                  "investment",
+                  "business",
+                  "investment_return",
+                ] as const
+              ).map((t) => {
                 const cfg = {
                   expense:    { label: "Chi tiêu",  bg: "rgba(239,68,68,0.2)",   border: "rgba(239,68,68,0.4)",   text: "#fca5a5" },
                   income:     { label: "Thu nhập",  bg: "rgba(45,154,75,0.2)",   border: "rgba(45,154,75,0.4)",   text: "#4ade80" },
                   investment: { label: "Đầu tư",    bg: "rgba(59,130,246,0.2)",  border: "rgba(59,130,246,0.4)",  text: "#93c5fd" },
+                  business: { label: "Rót vốn (business)",    bg: "rgba(168,85,247,0.2)",  border: "rgba(168,85,247,0.4)",  text: "#d8b4fe" },
+                  investment_return: { label: "Thu tiền về (business)", bg: "rgba(234,179,8,0.2)", border: "rgba(234,179,8,0.4)", text: "#fde68a" },
                 }[t];
                 return (
                   <button
@@ -334,7 +362,7 @@ function CategoryModal({
             <div>
               <p className="text-sm font-medium text-white">{name || "Tên danh mục"}</p>
               <p className="text-xs" style={{ color: "rgba(226,255,232,0.4)" }}>
-                {type === "expense" ? "Chi tiêu" : type === "income" ? "Thu nhập" : "Đầu tư"}
+                {CATEGORY_TYPE_LABELS[type]}
               </p>
             </div>
           </div>
@@ -366,7 +394,9 @@ export default function CategoriesClient({
   const onMenuToggle = useSidebarToggle();
   const [showModal, setShowModal] = useState(false);
   const [editCategory, setEditCategory] = useState<Category | undefined>();
-  const [activeTab, setActiveTab] = useState<"expense" | "income" | "investment">("expense");
+  const [activeTab, setActiveTab] = useState<
+    "expense" | "income" | "investment" | "business" | "investment_return"
+  >("expense");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
@@ -397,27 +427,45 @@ export default function CategoriesClient({
         className="flex-1 overflow-y-auto custom-scrollbar px-4 sm:px-6 py-4"
       >
         {/* Tabs */}
-        <div className="flex gap-2 mb-5 p-1 rounded-xl"
-          style={{ background: "rgba(10,20,13,0.7)", border: "1px solid rgba(45,154,75,0.1)" }}>
-          {(["expense", "income", "investment"] as const).map((tab) => {
+        <div
+          className="mb-5 flex gap-2 overflow-x-auto rounded-xl p-1"
+          style={{
+            background: "rgba(10,20,13,0.7)",
+            border: "1px solid rgba(45,154,75,0.1)",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
+          {(
+            [
+              "expense",
+              "income",
+              "investment",
+              "business",
+              "investment_return",
+            ] as const
+          ).map((tab) => {
             const cfg = {
               expense:    { label: "Chi tiêu", bg: "rgba(239,68,68,0.15)",  border: "rgba(239,68,68,0.3)",  text: "#fca5a5" },
               income:     { label: "Thu nhập", bg: "rgba(45,154,75,0.15)",  border: "rgba(45,154,75,0.3)",  text: "#4ade80" },
               investment: { label: "Đầu tư",   bg: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.3)", text: "#93c5fd" },
+              business: { label: "Rót vốn (business)",   bg: "rgba(168,85,247,0.15)", border: "rgba(168,85,247,0.3)", text: "#d8b4fe" },
+              investment_return: { label: "Thu tiền về (business)", bg: "rgba(234,179,8,0.15)", border: "rgba(234,179,8,0.3)", text: "#fde68a" },
             }[tab];
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className="flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all"
+                className="min-w-[110px] flex-none rounded-lg px-3 py-2.5 text-[13px] font-semibold leading-tight transition-all sm:flex-1 sm:text-sm"
                 style={{
                   background: activeTab === tab ? cfg.bg : "transparent",
                   color: activeTab === tab ? cfg.text : "rgba(226,255,232,0.4)",
                   border: activeTab === tab ? `1px solid ${cfg.border}` : "1px solid transparent",
                 }}
               >
-                {cfg.label}
-                <span className="ml-1.5 text-xs opacity-70">
+                <span className="block text-center">
+                  {cfg.label}
+                </span>
+                <span className="mt-0.5 block text-center text-[11px] opacity-70">
                   ({initialCategories.filter(c => c.type === tab).length})
                 </span>
               </button>
@@ -435,7 +483,7 @@ export default function CategoriesClient({
           }}
         >
           <Plus className="w-4 h-4" />
-          Thêm danh mục {activeTab === "expense" ? "chi tiêu" : activeTab === "income" ? "thu nhập" : "đầu tư"}
+          Thêm danh mục {CATEGORY_TYPE_LABELS[activeTab]}
         </button>
 
         {/* Category grid */}
@@ -504,7 +552,7 @@ export default function CategoriesClient({
               <Tag className="w-7 h-7" style={{ color: "#2D9A4B" }} />
             </div>
             <p className="text-sm font-medium dark:text-white text-gray-900">
-              Chưa có danh mục {activeTab === "expense" ? "chi tiêu" : activeTab === "income" ? "thu nhập" : "đầu tư"}
+              Chưa có danh mục {CATEGORY_TYPE_LABELS[activeTab]}
             </p>
             <p className="text-xs mt-2" style={{ color: "rgba(226,255,232,0.4)" }}>
               Tạo danh mục để phân loại giao dịch của bạn

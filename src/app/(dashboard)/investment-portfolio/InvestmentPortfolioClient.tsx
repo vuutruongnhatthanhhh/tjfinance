@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Landmark,
@@ -29,9 +31,14 @@ export default function InvestmentPortfolioClient({
   overallReturned,
 }: InvestmentPortfolioClientProps) {
   const onMenuToggle = useSidebarToggle();
+  const router = useRouter();
   const overallProfitLoss = overallCurrent + overallReturned - overallInvested;
   const overallProfitLossColor =
     overallProfitLoss > 0 ? "#4ade80" : overallProfitLoss < 0 ? "#f87171" : undefined;
+
+  useEffect(() => {
+    router.prefetch("/investments");
+  }, [router]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
