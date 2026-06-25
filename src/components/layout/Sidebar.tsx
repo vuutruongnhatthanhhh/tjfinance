@@ -48,7 +48,7 @@ const navItems: NavItem[] = [
   },
   {
     href: "/investment-portfolio",
-    label: "Danh má»¥c Ä‘áº§u tÆ°",
+    label: "Danh mục chi tiêu",
     icon: <Wallet className="h-5 w-5" />,
   },
   {
@@ -108,7 +108,9 @@ export default function Sidebar({
             <Banknote className="h-5 w-5 text-white" />
           </div>
           <div>
-            <span className="text-lg font-bold leading-none text-white">TJ</span>
+            <span className="text-lg font-bold leading-none text-white">
+              TJ
+            </span>
             <span
               className="text-lg font-bold leading-none"
               style={{ color: "#2D9A4B" }}
@@ -169,7 +171,9 @@ export default function Sidebar({
           <div className="flex items-center gap-3">
             <div
               className="h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white"
-              style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}
+              style={{
+                background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
+              }}
             >
               {userInitial}
             </div>
@@ -218,7 +222,9 @@ export default function Sidebar({
               <Banknote className="h-5 w-5 text-white" />
             </div>
             <div className="ml-3 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
-              <span className="text-lg font-bold leading-none text-white">TJ</span>
+              <span className="text-lg font-bold leading-none text-white">
+                TJ
+              </span>
               <span
                 className="text-lg font-bold leading-none"
                 style={{ color: "#2D9A4B" }}
