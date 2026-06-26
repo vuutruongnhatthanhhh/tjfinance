@@ -65,7 +65,7 @@ export default async function InvestmentAssetDetailPage({
   );
   const latestValuation = (valuations || [])[0] as InvestmentValuation | undefined;
   const currentValue = latestValuation ? Number(latestValuation.current_value) : totalInvested;
-  const profitLossAmount = currentValue + totalReturned - totalInvested;
+  const profitLossAmount = currentValue - totalInvested;
   const profitLossPercent =
     totalInvested > 0 ? (profitLossAmount / totalInvested) * 100 : 0;
 

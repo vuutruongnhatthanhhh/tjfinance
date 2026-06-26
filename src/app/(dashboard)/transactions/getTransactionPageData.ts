@@ -66,11 +66,16 @@ export async function getTransactionPageData(
 
   const tableName = getTransactionTableName(transactionType);
 
+  const categoryTypes =
+    transactionType === "investment"
+      ? ["investment", "business"]
+      : [transactionType];
+
   const { data: categories } = await supabase
     .from("categories")
     .select("*")
     .eq("user_id", user.id)
-    .eq("type", transactionType)
+    .in("type", categoryTypes)
     .order("name");
 
   const allowedCategoryIds = (categories || []).map((item) => item.id);

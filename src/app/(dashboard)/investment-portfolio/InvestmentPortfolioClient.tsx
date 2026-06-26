@@ -1,20 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Landmark,
   PiggyBank,
+  Trash2,
   TrendingDown,
   TrendingUp,
   Wallet,
 } from "lucide-react";
 import Header from "@/components/layout/Header";
 import StatCard from "@/components/ui/StatCard";
+import { createClient } from "@/lib/supabase/client";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { useSidebarToggle } from "../DashboardLayoutClient";
+import { useSidebarToggle, useToast } from "../DashboardLayoutClient";
 import type { InvestmentAssetSummary } from "./page";
 
 interface InvestmentPortfolioClientProps {
@@ -31,14 +33,63 @@ export default function InvestmentPortfolioClient({
   overallReturned,
 }: InvestmentPortfolioClientProps) {
   const onMenuToggle = useSidebarToggle();
+  const { showToast } = useToast();
   const router = useRouter();
-  const overallProfitLoss = overallCurrent + overallReturned - overallInvested;
+  const [isPending, startTransition] = useTransition();
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+  const overallProfitLoss = overallCurrent - overallInvested;
   const overallProfitLossColor =
-    overallProfitLoss > 0 ? "#4ade80" : overallProfitLoss < 0 ? "#f87171" : undefined;
+    overallProfitLoss > 0
+      ? "#4ade80"
+      : overallProfitLoss < 0
+        ? "#f87171"
+        : undefined;
 
   useEffect(() => {
     router.prefetch("/investments");
   }, [router]);
+
+  const deleteAsset = async (summary: InvestmentAssetSummary) => {
+    if (!summary.canDelete) {
+      window.alert("Khoản đầu tư này vẫn còn giao dịch nên chưa thể xóa.");
+      return;
+    }
+
+    if (
+      !window.confirm(`Bạn có chắc muốn xóa "${summary.asset.name}" không?`)
+    ) {
+      return;
+    }
+
+    setDeletingAssetId(summary.asset.id);
+    const supabase = createClient();
+
+    const { error: valuationDeleteError } = await supabase
+      .from("investment_valuations")
+      .delete()
+      .eq("asset_id", summary.asset.id);
+
+    if (valuationDeleteError) {
+      showToast("Không thể xóa khoản đầu tư. Vui lòng thử lại.");
+      setDeletingAssetId(null);
+      return;
+    }
+
+    const { error: assetDeleteError } = await supabase
+      .from("investment_assets")
+      .delete()
+      .eq("id", summary.asset.id);
+
+    if (assetDeleteError) {
+      showToast("Không thể xóa khoản đầu tư. Vui lòng thử lại.");
+      setDeletingAssetId(null);
+      return;
+    }
+
+    showToast("Xóa khoản đầu tư thành công");
+    setDeletingAssetId(null);
+    startTransition(() => router.refresh());
+  };
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -93,7 +144,7 @@ export default function InvestmentPortfolioClient({
             title="Lời / lỗ tạm tính"
             value={formatCurrency(overallProfitLoss)}
             valueColor={overallProfitLossColor}
-            subtitle="Giá trị hiện tại + thu về - vốn"
+            subtitle="Giá trị hiện tại - vốn"
             icon={
               overallProfitLoss >= 0 ? (
                 <TrendingUp className="h-6 w-6" />
@@ -109,10 +160,10 @@ export default function InvestmentPortfolioClient({
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {summaries.map((summary) => {
               const isPositive = summary.profitLossAmount >= 0;
+
               return (
-                <Link
+                <div
                   key={summary.asset.id}
-                  href={`/investment-portfolio/${summary.asset.id}`}
                   className="rounded-3xl border p-5 transition-all duration-200 hover:-translate-y-0.5"
                   style={{
                     background: "rgba(10,20,13,0.72)",
@@ -120,126 +171,159 @@ export default function InvestmentPortfolioClient({
                     boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
                   }}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-lg font-semibold text-white">
-                        {summary.asset.name}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {summary.asset.category && (
-                          <span
-                            className="rounded-full px-2.5 py-1 text-xs"
-                            style={{
-                              background: `${summary.asset.category.color}18`,
-                              color: summary.asset.category.color,
-                              border: `1px solid ${summary.asset.category.color}30`,
-                            }}
-                          >
-                            {summary.asset.category.name}
-                          </span>
-                        )}
-                        {summary.asset.is_business && (
-                          <span
-                            className="rounded-full border px-2.5 py-1 text-xs"
-                            style={{
-                              borderColor: "rgba(59,130,246,0.28)",
-                              background: "rgba(59,130,246,0.12)",
-                              color: "#bfdbfe",
-                            }}
-                          >
-                            Business
-                          </span>
-                        )}
+                  <Link
+                    href={`/investment-portfolio/${summary.asset.id}`}
+                    className="block"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-white">
+                          {summary.asset.name}
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {summary.asset.category && (
+                            <span
+                              className="rounded-full px-2.5 py-1 text-xs"
+                              style={{
+                                background: `${summary.asset.category.color}18`,
+                                color: summary.asset.category.color,
+                                border: `1px solid ${summary.asset.category.color}30`,
+                              }}
+                            >
+                              {summary.asset.category.name}
+                            </span>
+                          )}
+                          {summary.asset.is_business && (
+                            <span
+                              className="rounded-full border px-2.5 py-1 text-xs"
+                              style={{
+                                borderColor: "rgba(59,130,246,0.28)",
+                                background: "rgba(59,130,246,0.12)",
+                                color: "#bfdbfe",
+                              }}
+                            >
+                              Business
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div
+                        className="rounded-2xl px-3 py-2 text-right"
+                        style={{
+                          background: isPositive
+                            ? "rgba(34,197,94,0.12)"
+                            : "rgba(239,68,68,0.12)",
+                        }}
+                      >
+                        <p
+                          className="text-sm font-semibold"
+                          style={{ color: isPositive ? "#4ade80" : "#f87171" }}
+                        >
+                          {summary.profitLossPercent.toFixed(2)}%
+                        </p>
+                        <p
+                          className="mt-0.5 text-xs"
+                          style={{ color: isPositive ? "#86efac" : "#fca5a5" }}
+                        >
+                          {summary.profitLossAmount >= 0 ? "+" : ""}
+                          {formatCurrency(summary.profitLossAmount)}
+                        </p>
                       </div>
                     </div>
 
-                    <div
-                      className="rounded-2xl px-3 py-2 text-right"
+                    {summary.asset.description && (
+                      <p
+                        className="mt-3 line-clamp-2 text-sm"
+                        style={{ color: "rgba(226,255,232,0.52)" }}
+                      >
+                        {summary.asset.description}
+                      </p>
+                    )}
+
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <div>
+                        <p
+                          className="text-[11px] uppercase tracking-[0.16em]"
+                          style={{ color: "rgba(226,255,232,0.32)" }}
+                        >
+                          Vốn đầu tư
+                        </p>
+                        <p className="mt-1 text-base font-semibold text-white">
+                          {formatCurrency(summary.totalInvested)}
+                        </p>
+                      </div>
+                      <div>
+                        <p
+                          className="text-[11px] uppercase tracking-[0.16em]"
+                          style={{ color: "rgba(226,255,232,0.32)" }}
+                        >
+                          Giá trị hiện tại
+                        </p>
+                        <p className="mt-1 text-base font-semibold text-white">
+                          {formatCurrency(summary.currentValue)}
+                        </p>
+                      </div>
+                      <div>
+                        <p
+                          className="text-[11px] uppercase tracking-[0.16em]"
+                          style={{ color: "rgba(226,255,232,0.32)" }}
+                        >
+                          Tiền thu về
+                        </p>
+                        <p className="mt-1 text-base font-semibold text-white">
+                          {formatCurrency(summary.totalReturned)}
+                        </p>
+                      </div>
+                      <div>
+                        <p
+                          className="text-[11px] uppercase tracking-[0.16em]"
+                          style={{ color: "rgba(226,255,232,0.32)" }}
+                        >
+                          Cập nhật gần nhất
+                        </p>
+                        <p className="mt-1 text-sm font-medium text-white">
+                          {summary.latestValuation
+                            ? formatDate(
+                                summary.latestValuation.valuation_month,
+                              )
+                            : "Chưa cập nhật"}
+                        </p>
+                      </div>
+                    </div>
+                  </Link>
+
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => deleteAsset(summary)}
+                      disabled={
+                        isPending || deletingAssetId === summary.asset.id
+                      }
+                      className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors"
                       style={{
-                        background: isPositive
-                          ? "rgba(34,197,94,0.12)"
-                          : "rgba(239,68,68,0.12)",
+                        borderColor: "rgba(239,68,68,0.25)",
+                        background: "rgba(239,68,68,0.08)",
+                        color: "#fca5a5",
+                        opacity:
+                          isPending || deletingAssetId === summary.asset.id
+                            ? 0.7
+                            : 1,
                       }}
                     >
-                      <p
-                        className="text-sm font-semibold"
-                        style={{ color: isPositive ? "#4ade80" : "#f87171" }}
-                      >
-                        {summary.profitLossPercent.toFixed(2)}%
-                      </p>
-                      <p
-                        className="mt-0.5 text-xs"
-                        style={{ color: isPositive ? "#86efac" : "#fca5a5" }}
-                      >
-                        {summary.profitLossAmount >= 0 ? "+" : ""}
-                        {formatCurrency(summary.profitLossAmount)}
-                      </p>
-                    </div>
+                      <Trash2 className="h-4 w-4" />
+                      {deletingAssetId === summary.asset.id
+                        ? "Đang xóa..."
+                        : "Xóa"}
+                    </button>
                   </div>
-
-                  {summary.asset.description && (
-                    <p
-                      className="mt-3 line-clamp-2 text-sm"
-                      style={{ color: "rgba(226,255,232,0.52)" }}
-                    >
-                      {summary.asset.description}
-                    </p>
-                  )}
-
-                  <div className="mt-5 grid grid-cols-2 gap-3">
-                    <div>
-                      <p
-                        className="text-[11px] uppercase tracking-[0.16em]"
-                        style={{ color: "rgba(226,255,232,0.32)" }}
-                      >
-                        Vốn đầu tư
-                      </p>
-                      <p className="mt-1 text-base font-semibold text-white">
-                        {formatCurrency(summary.totalInvested)}
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className="text-[11px] uppercase tracking-[0.16em]"
-                        style={{ color: "rgba(226,255,232,0.32)" }}
-                      >
-                        Giá trị hiện tại
-                      </p>
-                      <p className="mt-1 text-base font-semibold text-white">
-                        {formatCurrency(summary.currentValue)}
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className="text-[11px] uppercase tracking-[0.16em]"
-                        style={{ color: "rgba(226,255,232,0.32)" }}
-                      >
-                        Tiền thu về
-                      </p>
-                      <p className="mt-1 text-base font-semibold text-white">
-                        {formatCurrency(summary.totalReturned)}
-                      </p>
-                    </div>
-                    <div>
-                      <p
-                        className="text-[11px] uppercase tracking-[0.16em]"
-                        style={{ color: "rgba(226,255,232,0.32)" }}
-                      >
-                        Cập nhật gần nhất
-                      </p>
-                      <p className="mt-1 text-sm font-medium text-white">
-                        {summary.latestValuation
-                          ? formatDate(summary.latestValuation.valuation_month)
-                          : "Chưa cập nhật"}
-                      </p>
-                    </div>
-                  </div>
-                </Link>
+                </div>
               );
             })}
           </div>
         ) : (
-          <div className="flex min-h-[360px] flex-col items-center justify-center rounded-3xl border text-center"
+          <div
+            className="flex min-h-[360px] flex-col items-center justify-center rounded-3xl border text-center"
             style={{
               background: "rgba(10,20,13,0.72)",
               borderColor: "rgba(45,154,75,0.12)",

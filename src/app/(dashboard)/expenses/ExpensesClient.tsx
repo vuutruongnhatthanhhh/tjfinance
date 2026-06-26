@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarRange,
@@ -124,8 +124,6 @@ const INVESTMENT_ASSET_NAME_MAX_LENGTH = 80;
 const INVESTMENT_ASSET_DESCRIPTION_MAX_LENGTH = 120;
 const EXPENSE_NOTE_MAX_LENGTH = 200;
 const SEARCH_INPUT_MAX_LENGTH = 100;
-const RETURN_DESCRIPTION_MAX_LENGTH = 120;
-const RETURN_NOTE_MAX_LENGTH = 200;
 
 const TRANSACTION_CONFIG: Record<
   TransactionType,
@@ -249,32 +247,92 @@ function AddExpenseModal({
   const isInvestment = transactionType === "investment";
   const isEdit = Boolean(expense);
   const { showToast } = useToast();
-  const transactionCategories = categories.filter(
-    (category) => category.type === transactionType,
+  const initialIsBusiness = expense?.asset?.is_business || false;
+  const investmentCategories = categories.filter(
+    (category) => category.type === "investment",
   );
+  const defaultTransactionCategories = isInvestment
+    ? investmentCategories
+    : categories.filter((category) => category.type === transactionType);
   const [amount, setAmount] = useState(
     expense ? formatNumberInput(String(expense.amount)) : "",
   );
   const [description, setDescription] = useState(expense?.description || "");
   const [categoryId, setCategoryId] = useState(
-    expense?.category_id || transactionCategories[0]?.id || "",
+    expense?.category_id || defaultTransactionCategories[0]?.id || "",
   );
   const [selectedAssetId, setSelectedAssetId] = useState(
-    expense?.asset_id || "__new__",
+    expense?.asset_id || "",
   );
   const [assetName, setAssetName] = useState(expense?.asset?.name || "");
   const [assetDescription, setAssetDescription] = useState(
     expense?.asset?.description || "",
   );
-  const [isBusiness, setIsBusiness] = useState(
-    expense?.asset?.is_business || false,
-  );
+  const [isBusiness, setIsBusiness] = useState(initialIsBusiness);
+  const [showCreateAssetModal, setShowCreateAssetModal] = useState(false);
+  const [assetDraftError, setAssetDraftError] = useState("");
+  const [isAssetAccordionOpen, setIsAssetAccordionOpen] = useState(false);
   const [date, setDate] = useState(
     expense?.date || new Date().toISOString().split("T")[0],
   );
   const [note, setNote] = useState(expense?.note || "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const hasNewAssetDraft = assetName.trim().length > 0;
+  const selectedExistingAsset = investmentAssets.find(
+    (item) => item.id === selectedAssetId,
+  );
+  const isCreatingNewAsset = !selectedAssetId && hasNewAssetDraft;
+  const isCategoryLocked = isInvestment && Boolean(selectedExistingAsset);
+  const transactionCategories = defaultTransactionCategories;
+  const assetCategoryId = isInvestment ? categoryId || null : null;
+  const assetAccordionSummary = isCreatingNewAsset
+    ? assetName || "Khoản đầu tư mới"
+    : selectedExistingAsset?.name || "Chưa chọn khoản đầu tư";
+
+  useEffect(() => {
+    if (!isInvestment) {
+      return;
+    }
+
+    if (!transactionCategories.some((category) => category.id === categoryId)) {
+      setCategoryId(transactionCategories[0]?.id || "");
+    }
+  }, [categoryId, isInvestment, transactionCategories]);
+
+  const openCreateAssetModal = () => {
+    setAssetDraftError("");
+    setShowCreateAssetModal(true);
+  };
+
+  const closeCreateAssetModal = () => {
+    setAssetDraftError("");
+    if (!hasNewAssetDraft) {
+      setSelectedAssetId("");
+    }
+    setShowCreateAssetModal(false);
+  };
+
+  const saveAssetDraft = (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedAssetName = assetName.trim();
+
+    if (!trimmedAssetName) {
+      setAssetDraftError("Vui lòng nhập tên khoản đầu tư.");
+      return;
+    }
+
+    if (!categoryId) {
+      setAssetDraftError("Vui lòng chọn danh mục đầu tư.");
+      return;
+    }
+
+    setAssetName(trimmedAssetName);
+    setAssetDraftError("");
+    setSelectedAssetId("");
+    setShowCreateAssetModal(false);
+    setIsAssetAccordionOpen(false);
+  };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -291,7 +349,17 @@ function AddExpenseModal({
     let assetId = expense?.asset_id || null;
 
     if (isInvestment) {
-      if (selectedAssetId === "__new__") {
+      if (!selectedAssetId && !hasNewAssetDraft) {
+        setIsAssetAccordionOpen(true);
+        setError("Vui lòng chọn hoặc tạo khoản đầu tư.");
+        setLoading(false);
+        return;
+      }
+
+      if (
+        selectedAssetId === "__new__" ||
+        (!selectedAssetId && hasNewAssetDraft)
+      ) {
         if (!assetName.trim()) {
           setError("Vui lòng nhập tên khoản đầu tư.");
           setLoading(false);
@@ -304,7 +372,7 @@ function AddExpenseModal({
             .update({
               name: assetName.trim(),
               description: assetDescription.trim() || null,
-              category_id: categoryId || null,
+              category_id: assetCategoryId,
               is_business: isBusiness,
               started_at: date,
             })
@@ -322,7 +390,7 @@ function AddExpenseModal({
             .from("investment_assets")
             .insert({
               user_id: userId,
-              category_id: categoryId || null,
+              category_id: assetCategoryId,
               name: assetName.trim(),
               description: assetDescription.trim() || null,
               is_business: isBusiness,
@@ -340,21 +408,6 @@ function AddExpenseModal({
           assetId = createdAsset.id;
         }
       } else {
-        const { error: assetUpdateError } = await supabase
-          .from("investment_assets")
-          .update({
-            category_id: categoryId || null,
-            description: assetDescription.trim() || null,
-            is_business: isBusiness,
-          })
-          .eq("id", selectedAssetId);
-
-        if (assetUpdateError) {
-          setError("Không thể cập nhật khoản đầu tư. Vui lòng thử lại.");
-          setLoading(false);
-          return;
-        }
-
         assetId = selectedAssetId;
       }
     }
@@ -396,298 +449,400 @@ function AddExpenseModal({
   };
 
   return (
-    <ModalOverlay
-      onClose={onClose}
-      panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
-      panelStyle={{
-        background: "rgba(8,20,12,0.97)",
-        border: "1px solid rgba(45,154,75,0.2)",
-        boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
-      }}
-    >
-      <div className="flex justify-center pt-3 pb-1 sm:hidden">
-        <div
-          className="h-1 w-10 rounded-full"
-          style={{ background: "rgba(45,154,75,0.3)" }}
-        />
-      </div>
-
-      <div
-        className="flex items-center justify-between border-b px-6 py-4"
-        style={{ borderColor: "rgba(45,154,75,0.12)" }}
+    <>
+      <ModalOverlay
+        onClose={onClose}
+        panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+        panelStyle={{
+          background: "rgba(8,20,12,0.97)",
+          border: "1px solid rgba(45,154,75,0.2)",
+          boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+        }}
       >
-        <div>
-          <h2 className="text-lg font-bold text-white">
-            {isEdit ? config.modalEditTitle : config.modalCreateTitle}
-          </h2>
-          <p
-            className="mt-0.5 text-xs"
-            style={{ color: "rgba(226,255,232,0.4)" }}
-          >
-            {isEdit ? config.modalEditSubtitle : config.modalCreateSubtitle}
-          </p>
-        </div>
-        <button
-          onClick={onClose}
-          className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
-          style={{
-            color: "rgba(226,255,232,0.5)",
-            background: "rgba(255,255,255,0.05)",
-          }}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      <form
-        onSubmit={handleSubmit}
-        className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
-      >
-        {error && (
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div
-            className="rounded-xl px-4 py-3 text-sm"
-            style={{
-              background: "rgba(239,68,68,0.1)",
-              border: "1px solid rgba(239,68,68,0.3)",
-              color: "#fca5a5",
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <div>
-          <label
-            className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "rgba(226,255,232,0.5)" }}
-          >
-            Số tiền
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={amount}
-              onChange={(event) =>
-                setAmount(formatNumberInput(event.target.value))
-              }
-              placeholder="0"
-              required
-              maxLength={15}
-              style={{
-                ...inputStyle,
-                paddingRight: "50px",
-                fontSize: "20px",
-                fontWeight: "bold",
-              }}
-            />
-            <span
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium"
-              style={{ color: "rgba(226,255,232,0.4)" }}
-            >
-              VNĐ
-            </span>
-          </div>
-        </div>
-
-        <div>
-          <label
-            className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "rgba(226,255,232,0.5)" }}
-          >
-            Tên giao dịch
-          </label>
-          <input
-            type="text"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            placeholder="Ví dụ: ăn trưa, lương tháng, mua quỹ..."
-            required
-            maxLength={EXPENSE_DESCRIPTION_MAX_LENGTH}
-            style={inputStyle}
+            className="h-1 w-10 rounded-full"
+            style={{ background: "rgba(45,154,75,0.3)" }}
           />
         </div>
 
-        {isInvestment && (
-          <section
-            className="rounded-2xl border p-4 space-y-4"
+        <div
+          className="flex items-center justify-between border-b px-6 py-4"
+          style={{ borderColor: "rgba(45,154,75,0.12)" }}
+        >
+          <div>
+            <h2 className="text-lg font-bold text-white">
+              {isEdit ? config.modalEditTitle : config.modalCreateTitle}
+            </h2>
+            <p
+              className="mt-0.5 text-xs"
+              style={{ color: "rgba(226,255,232,0.4)" }}
+            >
+              {isEdit ? config.modalEditSubtitle : config.modalCreateSubtitle}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
             style={{
-              borderColor: "rgba(45,154,75,0.18)",
-              background: "rgba(10,20,13,0.45)",
+              color: "rgba(226,255,232,0.5)",
+              background: "rgba(255,255,255,0.05)",
             }}
           >
-            <div className="flex items-center justify-between gap-3">
-              <label
-                className="block text-xs font-semibold uppercase tracking-wide"
-                style={{ color: "rgba(226,255,232,0.5)" }}
-              >
-                Khoản đầu tư
-              </label>
-              <button
-                type="button"
-                title="Hướng dẫn sử dụng"
-                aria-label="Hướng dẫn sử dụng"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
-                style={{
-                  borderColor: "rgba(45,154,75,0.22)",
-                  color: "#e2ffe8",
-                  background: "rgba(45,154,75,0.08)",
-                }}
-              >
-                <HelpCircle className="h-4 w-4" />
-              </button>
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
+        >
+          {error && (
+            <div
+              className="rounded-xl px-4 py-3 text-sm"
+              style={{
+                background: "rgba(239,68,68,0.1)",
+                border: "1px solid rgba(239,68,68,0.3)",
+                color: "#fca5a5",
+              }}
+            >
+              {error}
             </div>
+          )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <div className="relative">
-                  <select
-                    value={selectedAssetId}
-                    onChange={(event) => {
-                      const nextAssetId = event.target.value;
-                      setSelectedAssetId(nextAssetId);
-
-                      if (nextAssetId === "__new__") {
-                        setAssetName("");
-                        setAssetDescription("");
-                        setIsBusiness(false);
-                        return;
-                      }
-
-                      const selectedAsset = investmentAssets.find(
-                        (item) => item.id === nextAssetId,
-                      );
-
-                      if (selectedAsset) {
-                        setAssetName(selectedAsset.name);
-                        setAssetDescription(selectedAsset.description || "");
-                        setIsBusiness(selectedAsset.is_business);
-                        if (selectedAsset.category_id) {
-                          setCategoryId(selectedAsset.category_id);
-                        }
-                      }
-                    }}
-                    style={{
-                      ...inputStyle,
-                      paddingRight: "36px",
-                      appearance: "none",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="__new__" style={{ background: "#0a1a0f" }}>
-                      Tạo khoản đầu tư mới
-                    </option>
-                    {investmentAssets.map((asset) => (
-                      <option
-                        key={asset.id}
-                        value={asset.id}
-                        style={{ background: "#0a1a0f" }}
-                      >
-                        {asset.name}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown
-                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                    style={{ color: "rgba(226,255,232,0.4)" }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-end">
-                <label
-                  className="flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-sm"
-                  style={{
-                    borderColor: "rgba(45,154,75,0.18)",
-                    background: "rgba(10,20,13,0.65)",
-                    color: "#e2ffe8",
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isBusiness}
-                    onChange={(event) => setIsBusiness(event.target.checked)}
-                    className="h-4 w-4 rounded border-primary/40 bg-transparent text-primary focus:ring-primary/20"
-                  />
-                  Business
-                </label>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {selectedAssetId === "__new__" && (
-                <div>
-                  <label
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "rgba(226,255,232,0.5)" }}
-                  >
-                    Tên khoản đầu tư
-                  </label>
-                  <input
-                    type="text"
-                    value={assetName}
-                    onChange={(event) => setAssetName(event.target.value)}
-                    placeholder="Ví dụ: Công ty ABC, Vàng SJC..."
-                    maxLength={INVESTMENT_ASSET_NAME_MAX_LENGTH}
-                    style={inputStyle}
-                  />
-                </div>
-              )}
-
-              <div
-                className={selectedAssetId === "__new__" ? "" : "sm:col-span-2"}
-              >
-                <label
-                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                  style={{ color: "rgba(226,255,232,0.5)" }}
-                >
-                  Mô tả khoản đầu tư
-                </label>
-                <input
-                  type="text"
-                  value={assetDescription}
-                  onChange={(event) => setAssetDescription(event.target.value)}
-                  placeholder="Mô tả ngắn..."
-                  maxLength={INVESTMENT_ASSET_DESCRIPTION_MAX_LENGTH}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          </section>
-        )}
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
             <label
               className="mb-2 block text-xs font-semibold uppercase tracking-wide"
               style={{ color: "rgba(226,255,232,0.5)" }}
             >
-              Danh mục
+              Số tiền
             </label>
             <div className="relative">
-              <select
-                value={categoryId}
-                onChange={(event) => setCategoryId(event.target.value)}
+              <input
+                type="text"
+                inputMode="numeric"
+                value={amount}
+                onChange={(event) =>
+                  setAmount(formatNumberInput(event.target.value))
+                }
+                placeholder="0"
+                required
+                maxLength={15}
                 style={{
                   ...inputStyle,
-                  paddingRight: "36px",
-                  appearance: "none",
-                  cursor: "pointer",
+                  paddingRight: "50px",
+                  fontSize: "20px",
+                  fontWeight: "bold",
                 }}
-              >
-                {transactionCategories.map((category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                    style={{ background: "#0a1a0f" }}
-                  >
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+              />
+              <span
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium"
                 style={{ color: "rgba(226,255,232,0.4)" }}
+              >
+                VNĐ
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label
+              className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+              style={{ color: "rgba(226,255,232,0.5)" }}
+            >
+              Tên giao dịch
+            </label>
+            <input
+              type="text"
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Ví dụ: ăn trưa, lương tháng, mua quỹ..."
+              required
+              maxLength={EXPENSE_DESCRIPTION_MAX_LENGTH}
+              style={inputStyle}
+            />
+          </div>
+
+          {isInvestment && (
+            <section
+              className="rounded-2xl border p-4 space-y-4"
+              style={{
+                borderColor: "rgba(45,154,75,0.18)",
+                background: "rgba(10,20,13,0.45)",
+              }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsAssetAccordionOpen((current) => !current)}
+                  className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                >
+                  <div className="min-w-0">
+                    <p
+                      className="block text-xs font-semibold uppercase tracking-wide"
+                      style={{ color: "rgba(226,255,232,0.5)" }}
+                    >
+                      Khoản đầu tư
+                    </p>
+                    <p
+                      className="mt-1 truncate text-sm"
+                      style={{ color: "#e2ffe8" }}
+                    >
+                      {assetAccordionSummary}
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 flex-shrink-0 transition-transform",
+                      isAssetAccordionOpen && "rotate-180",
+                    )}
+                    style={{ color: "rgba(226,255,232,0.4)" }}
+                  />
+                </button>
+                <button
+                  type="button"
+                  title="Hướng dẫn sử dụng"
+                  aria-label="Hướng dẫn sử dụng"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors"
+                  style={{
+                    borderColor: "rgba(45,154,75,0.22)",
+                    color: "#e2ffe8",
+                    background: "rgba(45,154,75,0.08)",
+                  }}
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </button>
+              </div>
+
+              {isAssetAccordionOpen && (
+                <div className="space-y-4">
+                  <div>
+                    <div>
+                      <div className="relative">
+                        <select
+                          value={selectedAssetId}
+                          onChange={(event) => {
+                            const nextAssetId = event.target.value;
+                            if (nextAssetId === "__new__") {
+                              setSelectedAssetId("__new__");
+                              setAssetName("");
+                              setAssetDescription("");
+                              setIsBusiness(false);
+                              openCreateAssetModal();
+                              return;
+                            }
+
+                            setSelectedAssetId(nextAssetId);
+
+                            if (!nextAssetId) {
+                              if (!hasNewAssetDraft) {
+                                setAssetName("");
+                                setAssetDescription("");
+                                setIsBusiness(false);
+                              }
+                              return;
+                            }
+
+                            const selectedAsset = investmentAssets.find(
+                              (item) => item.id === nextAssetId,
+                            );
+
+                            if (selectedAsset) {
+                              setAssetName(selectedAsset.name);
+                              setAssetDescription(
+                                selectedAsset.description || "",
+                              );
+                              setIsBusiness(selectedAsset.is_business);
+                              if (selectedAsset.category_id) {
+                                setCategoryId(selectedAsset.category_id);
+                              }
+                              setIsAssetAccordionOpen(false);
+                            }
+                          }}
+                          style={{
+                            ...inputStyle,
+                            paddingRight: "36px",
+                            appearance: "none",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <option
+                            disabled
+                            value=""
+                            style={{ background: "#0a1a0f" }}
+                          >
+                            Chọn khoản đầu tư
+                          </option>
+                          {investmentAssets.map((asset) => (
+                            <option
+                              key={asset.id}
+                              value={asset.id}
+                              style={{ background: "#0a1a0f" }}
+                            >
+                              {asset.name}
+                            </option>
+                          ))}
+                          <option
+                            value="__new__"
+                            style={{
+                              background: "rgba(45,154,75,0.2)",
+                              color: "#aaf0be",
+                              fontWeight: 700,
+                            }}
+                          >
+                            + Tạo khoản đầu tư mới
+                          </option>
+                        </select>
+                        <ChevronDown
+                          className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                          style={{ color: "rgba(226,255,232,0.4)" }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {isCreatingNewAsset ? (
+                    <div
+                      className="rounded-2xl border p-4"
+                      style={{
+                        borderColor: "rgba(59,130,246,0.2)",
+                        background: "rgba(59,130,246,0.06)",
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="text-xs font-semibold uppercase tracking-wide"
+                            style={{ color: "rgba(191,219,254,0.78)" }}
+                          >
+                            Khoản đầu tư mới
+                          </p>
+                          <p className="mt-2 truncate text-sm font-semibold text-white">
+                            {assetName || "Chưa nhập tên khoản đầu tư"}
+                          </p>
+                          <p
+                            className="mt-1 line-clamp-2 text-sm"
+                            style={{ color: "rgba(226,255,232,0.45)" }}
+                          >
+                            {assetDescription || "Chưa có mô tả"}
+                          </p>
+                          <p
+                            className="mt-2 text-xs font-medium"
+                            style={{
+                              color: isBusiness ? "#bfdbfe" : "#aaf0be",
+                            }}
+                          >
+                            {isBusiness ? "Business" : "Đầu tư thường"}
+                          </p>
+                          <p
+                            className="mt-2 text-xs"
+                            style={{ color: "rgba(191,219,254,0.75)" }}
+                          >
+                            Chọn lại option &quot;Tạo khoản đầu tư mới&quot;
+                            trong dropdown để sửa nhanh.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ) : selectedExistingAsset ? (
+                    <div
+                      className="rounded-2xl border p-4"
+                      style={{
+                        borderColor: "rgba(45,154,75,0.16)",
+                        background: "rgba(10,20,13,0.55)",
+                      }}
+                    >
+                      <p
+                        className="text-xs font-semibold uppercase tracking-wide"
+                        style={{ color: "rgba(170,240,190,0.72)" }}
+                      >
+                        Khoản đầu tư đã chọn
+                      </p>
+                      <p className="mt-2 truncate text-sm font-semibold text-white">
+                        {selectedExistingAsset.name}
+                      </p>
+                      <p
+                        className="mt-1 line-clamp-2 text-sm"
+                        style={{ color: "rgba(226,255,232,0.45)" }}
+                      >
+                        {selectedExistingAsset.description || "Chưa có mô tả"}
+                      </p>
+                      <p
+                        className="mt-2 text-xs font-medium"
+                        style={{
+                          color: selectedExistingAsset.is_business
+                            ? "#bfdbfe"
+                            : "#aaf0be",
+                        }}
+                      >
+                        {selectedExistingAsset.is_business
+                          ? "Business"
+                          : "Đầu tư thường"}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </section>
+          )}
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Danh mục
+              </label>
+              <div className="relative">
+                <select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                  disabled={isCategoryLocked}
+                  style={{
+                    ...inputStyle,
+                    paddingRight: "36px",
+                    appearance: "none",
+                    cursor: "pointer",
+                    opacity: isCategoryLocked ? 0.65 : 1,
+                  }}
+                >
+                  {transactionCategories.map((category) => (
+                    <option
+                      key={category.id}
+                      value={category.id}
+                      style={{ background: "#0a1a0f" }}
+                    >
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                  style={{ color: "rgba(226,255,232,0.4)" }}
+                />
+              </div>
+              {/* {isCategoryLocked && (
+                <p
+                  className="mt-2 text-xs"
+                  style={{ color: "rgba(226,255,232,0.4)" }}
+                >
+                  Danh mục bị khóa vì anh đang chọn khoản đầu tư có sẵn.
+                </p>
+              )} */}
+            </div>
+
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Ngày
+              </label>
+              <DateInput
+                value={date}
+                onChange={setDate}
+                required
+                style={inputStyle}
               />
             </div>
           </div>
@@ -697,65 +852,238 @@ function AddExpenseModal({
               className="mb-2 block text-xs font-semibold uppercase tracking-wide"
               style={{ color: "rgba(226,255,232,0.5)" }}
             >
-              Ngày
+              Ghi chú{" "}
+              <span style={{ color: "rgba(226,255,232,0.3)" }}>(tùy chọn)</span>
             </label>
-            <DateInput
-              value={date}
-              onChange={setDate}
-              required
-              style={inputStyle}
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder={config.notePlaceholder}
+              rows={2}
+              maxLength={EXPENSE_NOTE_MAX_LENGTH}
+              style={{ ...inputStyle, resize: "none" }}
             />
           </div>
-        </div>
 
-        <div>
-          <label
-            className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-            style={{ color: "rgba(226,255,232,0.5)" }}
-          >
-            Ghi chú{" "}
-            <span style={{ color: "rgba(226,255,232,0.3)" }}>(tùy chọn)</span>
-          </label>
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder={config.notePlaceholder}
-            rows={2}
-            maxLength={EXPENSE_NOTE_MAX_LENGTH}
-            style={{ ...inputStyle, resize: "none" }}
-          />
-        </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl py-3 text-sm font-semibold transition-colors"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: "rgba(226,255,232,0.6)",
+              }}
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-[2] btn-primary flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  {isEdit ? "Lưu thay đổi" : config.saveCreateLabel}
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </ModalOverlay>
 
-        <div className="flex gap-3 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-xl py-3 text-sm font-semibold transition-colors"
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(226,255,232,0.6)",
-            }}
+      {isInvestment && showCreateAssetModal && (
+        <ModalOverlay
+          onClose={closeCreateAssetModal}
+          panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+          panelStyle={{
+            background: "rgba(8,20,12,0.97)",
+            border: "1px solid rgba(59,130,246,0.28)",
+            boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div
+              className="h-1 w-10 rounded-full"
+              style={{ background: "rgba(59,130,246,0.35)" }}
+            />
+          </div>
+
+          <div
+            className="flex items-center justify-between border-b px-6 py-4"
+            style={{ borderColor: "rgba(59,130,246,0.18)" }}
           >
-            Hủy
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="flex-[2] btn-primary flex items-center justify-center gap-2"
+            <div>
+              <h2 className="text-lg font-bold text-white">
+                Tạo khoản đầu tư mới
+              </h2>
+              <p
+                className="mt-0.5 text-xs"
+                style={{ color: "rgba(191,219,254,0.75)" }}
+              >
+                Nhập thông tin khoản đầu tư trước khi lưu giao dịch.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeCreateAssetModal}
+              className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
+              style={{
+                color: "rgba(191,219,254,0.8)",
+                background: "rgba(59,130,246,0.08)",
+              }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form
+            onSubmit={saveAssetDraft}
+            className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
           >
-            {loading ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-            ) : (
-              <>
-                <Plus className="h-4 w-4" />
-                {isEdit ? "Lưu thay đổi" : config.saveCreateLabel}
-              </>
+            {assetDraftError && (
+              <div
+                className="rounded-xl px-4 py-3 text-sm"
+                style={{
+                  background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  color: "#fca5a5",
+                }}
+              >
+                {assetDraftError}
+              </div>
             )}
-          </button>
-        </div>
-      </form>
-    </ModalOverlay>
+
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Tên khoản đầu tư
+              </label>
+              <input
+                type="text"
+                value={assetName}
+                onChange={(event) => {
+                  setAssetName(event.target.value);
+                  if (assetDraftError) setAssetDraftError("");
+                }}
+                placeholder="Ví dụ: Công ty ABC, Vàng SJC..."
+                maxLength={INVESTMENT_ASSET_NAME_MAX_LENGTH}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Mô tả khoản đầu tư
+              </label>
+              <input
+                type="text"
+                value={assetDescription}
+                onChange={(event) => setAssetDescription(event.target.value)}
+                placeholder="Mô tả ngắn..."
+                maxLength={INVESTMENT_ASSET_DESCRIPTION_MAX_LENGTH}
+                style={inputStyle}
+              />
+            </div>
+
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Danh mục đầu tư
+              </label>
+              <div className="relative">
+                <select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                  style={{
+                    ...inputStyle,
+                    paddingRight: "36px",
+                    appearance: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {transactionCategories.map((category) => (
+                    <option
+                      key={category.id}
+                      value={category.id}
+                      style={{ background: "#0a1a0f" }}
+                    >
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                  style={{ color: "rgba(226,255,232,0.4)" }}
+                />
+              </div>
+            </div>
+
+            <div
+              className="rounded-xl border px-4 py-3"
+              style={{
+                borderColor: "rgba(59,130,246,0.18)",
+                background: "rgba(10,20,13,0.65)",
+              }}
+            >
+              <p
+                className="mb-3 text-xs leading-5"
+                style={{ color: "rgba(226,255,232,0.62)" }}
+              >
+                Chọn <strong>Business</strong> nếu đây là khoản đầu tư vào một
+                hoạt động kinh doanh. Loại này sẽ có thêm các lần rót vốn và các
+                khoản thu tiền về để theo dõi riêng.
+              </p>
+              <label
+                className="flex w-full items-center gap-3 text-sm"
+                style={{ color: "#e2ffe8" }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isBusiness}
+                  onChange={(event) => setIsBusiness(event.target.checked)}
+                  className="h-4 w-4 rounded border-primary/40 bg-transparent text-primary focus:ring-primary/20"
+                />
+                Business
+              </label>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={closeCreateAssetModal}
+                className="rounded-xl border px-4 py-3 text-sm font-semibold"
+                style={{
+                  borderColor: "rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "rgba(226,255,232,0.7)",
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Lưu khoản đầu tư
+              </button>
+            </div>
+          </form>
+        </ModalOverlay>
+      )}
+    </>
   );
 }
 
@@ -1129,31 +1457,44 @@ export default function ExpensesClient({
     );
   }, [initialExpenses]);
 
-  const buildUrl = (updates: Record<string, string | number | undefined>) => {
-    const params = new URLSearchParams();
-    const nextSearch = String(updates.q ?? searchInput);
-    const nextCategory = String(updates.category ?? selectedCategory);
-    const nextFrom = String(updates.from ?? selectedDateFrom);
-    const nextTo = String(updates.to ?? selectedDateTo);
-    const nextPage = updates.page ?? currentPage;
+  const buildUrl = useCallback(
+    (updates: Record<string, string | number | undefined>) => {
+      const params = new URLSearchParams();
+      const nextSearch = String(updates.q ?? searchInput);
+      const nextCategory = String(updates.category ?? selectedCategory);
+      const nextFrom = String(updates.from ?? selectedDateFrom);
+      const nextTo = String(updates.to ?? selectedDateTo);
+      const nextPage = updates.page ?? currentPage;
 
-    if (nextSearch.trim()) params.set("q", nextSearch.trim());
-    if (nextCategory && nextCategory !== "all") {
-      params.set("category", String(nextCategory));
-    }
-    if (nextFrom) params.set("from", String(nextFrom));
-    if (nextTo) params.set("to", String(nextTo));
-    if (Number(nextPage) > 1) params.set("page", String(nextPage));
+      if (nextSearch.trim()) params.set("q", nextSearch.trim());
+      if (nextCategory && nextCategory !== "all") {
+        params.set("category", String(nextCategory));
+      }
+      if (nextFrom) params.set("from", String(nextFrom));
+      if (nextTo) params.set("to", String(nextTo));
+      if (Number(nextPage) > 1) params.set("page", String(nextPage));
 
-    const query = params.toString();
-    return query ? `${pathname}?${query}` : pathname;
-  };
+      const query = params.toString();
+      return query ? `${pathname}?${query}` : pathname;
+    },
+    [
+      currentPage,
+      pathname,
+      searchInput,
+      selectedCategory,
+      selectedDateFrom,
+      selectedDateTo,
+    ],
+  );
 
-  const navigate = (updates: Record<string, string | number | undefined>) => {
-    startTransition(() => {
-      router.replace(buildUrl(updates));
-    });
-  };
+  const navigate = useCallback(
+    (updates: Record<string, string | number | undefined>) => {
+      startTransition(() => {
+        router.replace(buildUrl(updates));
+      });
+    },
+    [buildUrl, router],
+  );
 
   const handleEdit = (expense: Expense & { category?: Category }) => {
     setEditExpense(expense);
@@ -1256,7 +1597,7 @@ export default function ExpensesClient({
     if (currentPage > totalPages) {
       navigate({ page: totalPages });
     }
-  }, [currentPage, totalPages]);
+  }, [currentPage, navigate, totalPages]);
 
   useEffect(() => {
     desktopTableRef.current?.scrollIntoView({

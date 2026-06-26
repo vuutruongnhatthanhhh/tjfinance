@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -80,18 +86,21 @@ export default function InvestmentAssetDetailClient({
   const initialReturnCategoryOptions = investmentCategories.filter(
     (category) => category.type === "investment_return",
   );
+  const assetCategoryOptions = investmentCategories.filter(
+    (category) => category.type === "investment",
+  );
   const [capitalCategories, setCapitalCategories] = useState(
     initialCapitalCategoryOptions,
   );
   const [returnCategories, setReturnCategories] = useState(
     initialReturnCategoryOptions,
   );
+  const [assetCategoryId, setAssetCategoryId] = useState(
+    asset.category_id || asset.category?.id || assetCategoryOptions[0]?.id || "",
+  );
   const defaultCapitalCategoryId = asset.is_business
-    ? capitalCategories[0]?.id || "__new__"
-    : asset.category_id ||
-      asset.category?.id ||
-      capitalCategories[0]?.id ||
-      "__new__";
+    ? ""
+    : assetCategoryId || capitalCategories[0]?.id || "";
   const [isPending, startTransition] = useTransition();
   const [valuationDate, setValuationDate] = useState(
     valuations[0]?.valuation_month || new Date().toISOString().split("T")[0],
@@ -147,9 +156,8 @@ export default function InvestmentAssetDetailClient({
   );
   const [error, setError] = useState("");
   const [assetError, setAssetError] = useState("");
-  const currentCategoryId = asset.category_id || asset.category?.id || "";
-  const currentCategoryName = asset.category?.name || "Không danh mục";
-  const defaultReturnCategoryId = returnCategories[0]?.id || "__new__";
+  const currentCategoryId = assetCategoryId;
+  const defaultReturnCategoryId = returnCategories[0]?.id || "";
   const [returnCategoryId, setReturnCategoryId] = useState(
     defaultReturnCategoryId,
   );
@@ -179,6 +187,10 @@ export default function InvestmentAssetDetailClient({
     (safeReturnPage - 1) * RETURN_PAGE_SIZE,
     safeReturnPage * RETURN_PAGE_SIZE,
   );
+  const returnDisplayCount =
+    safeReturnPage === 1
+      ? visibleReturns.length
+      : (safeReturnPage - 1) * RETURN_PAGE_SIZE + 1;
   const normalizedCapitalSearch = capitalSearchQuery.trim().toLowerCase();
   const normalizedCapitalCategoryFilter =
     asset.is_business && capitalCategoryFilter !== "all"
@@ -206,6 +218,10 @@ export default function InvestmentAssetDetailClient({
     (safeCapitalPage - 1) * CAPITAL_PAGE_SIZE,
     safeCapitalPage * CAPITAL_PAGE_SIZE,
   );
+  const capitalDisplayCount =
+    safeCapitalPage === 1
+      ? visibleCapitalInvestments.length
+      : (safeCapitalPage - 1) * CAPITAL_PAGE_SIZE + 1;
 
   useLayoutEffect(() => {
     const activeRoot = document.querySelector<HTMLElement>(
@@ -248,6 +264,7 @@ export default function InvestmentAssetDetailClient({
       : profitLossAmount < 0
         ? "#f87171"
         : undefined;
+  const canDeleteAsset = investments.length === 0 && returns.length === 0;
 
   const saveAssetInfo = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -264,6 +281,7 @@ export default function InvestmentAssetDetailClient({
       .update({
         name: assetName.trim(),
         description: assetDescription.trim() || null,
+        category_id: assetCategoryId || null,
       })
       .eq("id", asset.id);
 
@@ -486,13 +504,28 @@ export default function InvestmentAssetDetailClient({
     }
     if (categoryDialogTarget === "return") {
       setReturnCategoryId(createdCategory.id);
+      setReturnModalOpen(true);
     } else {
       setCapitalCategoryId(createdCategory.id);
+      setCapitalModalOpen(true);
     }
     setNewCapitalCategoryName("");
     setShowNewCapitalCategoryInput(false);
     setNewCapitalCategorySaving(false);
     showToast("Tạo mới thành công");
+  };
+
+  const openCreateCategoryModal = (target: "capital" | "return") => {
+    setCategoryDialogTarget(target);
+    setShowNewCapitalCategoryInput(true);
+    setNewCapitalCategoryName("");
+    setCapitalError("");
+  };
+
+  const closeCreateCategoryModal = () => {
+    setShowNewCapitalCategoryInput(false);
+    setNewCapitalCategoryName("");
+    setCapitalError("");
   };
 
   const openCreateCapitalModal = () => {
@@ -680,6 +713,43 @@ export default function InvestmentAssetDetailClient({
     startTransition(() => router.refresh());
   };
 
+  const deleteAsset = async () => {
+    if (!canDeleteAsset) {
+      window.alert("Khoản đầu tư này vẫn còn giao dịch nên chưa thể xóa.");
+      return;
+    }
+
+    if (!window.confirm(`Bạn có chắc muốn xóa "${asset.name}" không?`)) {
+      return;
+    }
+
+    const supabase = createClient();
+
+    const { error: valuationDeleteError } = await supabase
+      .from("investment_valuations")
+      .delete()
+      .eq("asset_id", asset.id);
+
+    if (valuationDeleteError) {
+      setAssetError("Không thể xóa khoản đầu tư. Vui lòng thử lại.");
+      return;
+    }
+
+    const { error: assetDeleteError } = await supabase
+      .from("investment_assets")
+      .delete()
+      .eq("id", asset.id);
+
+    if (assetDeleteError) {
+      setAssetError("Không thể xóa khoản đầu tư. Vui lòng thử lại.");
+      return;
+    }
+
+    showToast("Xóa khoản đầu tư thành công");
+    router.push("/investment-portfolio");
+    startTransition(() => router.refresh());
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <Header
@@ -809,6 +879,56 @@ export default function InvestmentAssetDetailClient({
                 placeholder="Mô tả ngắn..."
               />
             </div>
+
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "rgba(226,255,232,0.5)" }}
+              >
+                Danh mục đầu tư
+              </label>
+              <div className="relative">
+                <select
+                  value={assetCategoryId}
+                  onChange={(event) => setAssetCategoryId(event.target.value)}
+                  className="w-full appearance-none rounded-xl border px-4 py-3 pr-10 text-sm text-white outline-none"
+                  style={{
+                    borderColor: "rgba(45,154,75,0.2)",
+                    background: "rgba(5,13,8,0.8)",
+                  }}
+                >
+                  {assetCategoryOptions.map((category) => (
+                    <option
+                      key={category.id}
+                      value={category.id}
+                      style={{ background: "#0a1a0f" }}
+                    >
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <Pencil
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                  style={{ color: "rgba(226,255,232,0.35)" }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={deleteAsset}
+              className="inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition-colors"
+              style={{
+                borderColor: "rgba(239,68,68,0.25)",
+                background: "rgba(239,68,68,0.08)",
+                color: "#fca5a5",
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+              Xóa khoản đầu tư
+            </button>
           </div>
 
           <div className="mt-4 flex justify-end">
@@ -1036,7 +1156,8 @@ export default function InvestmentAssetDetailClient({
                   className="mt-1 text-sm"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  Dùng cho các khoản business có dòng tiền quay về, ví dụ ký hợp đồng hoặc chia lợi nhuận.
+                  Dùng cho các khoản business có dòng tiền quay về, ví dụ ký hợp
+                  đồng hoặc chia lợi nhuận.
                 </p>
                 <div className="mt-4 flex items-center justify-between gap-3">
                   <button
@@ -1120,7 +1241,7 @@ export default function InvestmentAssetDetailClient({
                         className="mb-2 block text-xs font-semibold uppercase tracking-wide"
                         style={{ color: "rgba(226,255,232,0.5)" }}
                       >
-                        L?c theo danh m?c thu ti?n
+                        Lọc theo danh mục thu tiền
                       </label>
                       <select
                         value={returnCategoryFilter}
@@ -1153,25 +1274,29 @@ export default function InvestmentAssetDetailClient({
                     {visibleReturns.map((item) => (
                       <div
                         key={item.id}
-                        className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+                        className="flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                         style={{
                           borderColor: "rgba(45,154,75,0.1)",
                           background: "rgba(255,255,255,0.03)",
                         }}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">
+                          <p
+                            className="truncate text-sm font-semibold text-white"
+                            title={item.description}
+                          >
                             {item.description}
                           </p>
                           <p
-                            className="mt-1 text-xs"
+                            className="mt-1 truncate text-xs"
                             style={{ color: "rgba(226,255,232,0.45)" }}
                           >
                             {formatDate(item.date)}
                           </p>
                           {item.category?.name && (
                             <p
-                              className="mt-1 text-xs"
+                              className="mt-1 truncate text-xs"
+                              title={item.category.name}
                               style={{ color: "#aaf0be" }}
                             >
                               {item.category.name}
@@ -1187,8 +1312,8 @@ export default function InvestmentAssetDetailClient({
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-bold text-green-400">
+                        <div className="flex items-center justify-between gap-2 sm:shrink-0">
+                          <p className="max-w-[120px] truncate text-sm font-bold text-green-400 sm:max-w-none sm:text-right">
                             +{formatCurrency(item.amount)}
                           </p>
                           <button
@@ -1229,7 +1354,8 @@ export default function InvestmentAssetDetailClient({
                         className="mt-2 text-sm"
                         style={{ color: "rgba(226,255,232,0.45)" }}
                       >
-                        Thử xoá bộ lọc hoặc nhập từ khoá khác để xem các lần thu tiền về.
+                        Thử xoá bộ lọc hoặc nhập từ khoá khác để xem các lần thu
+                        tiền về.
                       </p>
                     </div>
                   </div>
@@ -1239,15 +1365,16 @@ export default function InvestmentAssetDetailClient({
                     className="text-sm"
                     style={{ color: "rgba(226,255,232,0.45)" }}
                   >
-                    Hiển thị {visibleReturns.length} / {filteredReturns.length} giao dịch
+                    Hiển thị {returnDisplayCount} / {filteredReturns.length}{" "}
+                    giao dịch
                   </p>
                   <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      shouldScrollReturnPaginationRef.current = true;
-                      setReturnPage((page) => Math.max(1, page - 1));
-                    }}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        shouldScrollReturnPaginationRef.current = true;
+                        setReturnPage((page) => Math.max(1, page - 1));
+                      }}
                       disabled={safeReturnPage <= 1}
                       className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                       style={{
@@ -1268,14 +1395,14 @@ export default function InvestmentAssetDetailClient({
                     >
                       {safeReturnPage} / {totalReturnPages}
                     </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      shouldScrollReturnPaginationRef.current = true;
-                      setReturnPage((page) =>
-                        Math.min(totalReturnPages, page + 1),
-                      );
-                    }}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        shouldScrollReturnPaginationRef.current = true;
+                        setReturnPage((page) =>
+                          Math.min(totalReturnPages, page + 1),
+                        );
+                      }}
                       disabled={safeReturnPage >= totalReturnPages}
                       className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                       style={{
@@ -1589,25 +1716,29 @@ export default function InvestmentAssetDetailClient({
                   {visibleCapitalInvestments.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-3"
+                      className="flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                       style={{
                         borderColor: "rgba(45,154,75,0.1)",
                         background: "rgba(255,255,255,0.03)",
                       }}
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-white">
+                        <p
+                          className="truncate text-sm font-semibold text-white"
+                          title={item.description}
+                        >
                           {item.description}
                         </p>
                         <p
-                          className="mt-1 text-xs"
+                          className="mt-1 truncate text-xs"
                           style={{ color: "rgba(226,255,232,0.45)" }}
                         >
                           {formatDate(item.date)}
                         </p>
                         {asset.is_business && item.category?.name && (
                           <p
-                            className="mt-1 text-xs"
+                            className="mt-1 truncate text-xs"
+                            title={item.category.name}
                             style={{ color: "#aaf0be" }}
                           >
                             {item.category.name}
@@ -1623,8 +1754,8 @@ export default function InvestmentAssetDetailClient({
                           </p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-bold text-white">
+                      <div className="flex items-center justify-between gap-2 sm:shrink-0">
+                        <p className="max-w-[120px] truncate text-sm font-bold text-white sm:max-w-none sm:text-right">
                           {formatCurrency(item.amount)}
                         </p>
                         <button
@@ -1665,7 +1796,8 @@ export default function InvestmentAssetDetailClient({
                       className="mt-2 text-sm"
                       style={{ color: "rgba(226,255,232,0.45)" }}
                     >
-                      Thử xoá bộ lọc hoặc nhập từ khoá khác để xem các lần rót vốn.
+                      Thử xoá bộ lọc hoặc nhập từ khoá khác để xem các lần rót
+                      vốn.
                     </p>
                   </div>
                 </div>
@@ -1675,7 +1807,7 @@ export default function InvestmentAssetDetailClient({
                   className="text-sm"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  Hiển thị {visibleCapitalInvestments.length} /{" "}
+                  Hiển thị {capitalDisplayCount} /{" "}
                   {filteredCapitalInvestments.length} giao dịch
                 </p>
                 <div className="flex items-center gap-2">
@@ -1751,7 +1883,9 @@ export default function InvestmentAssetDetailClient({
             >
               <div>
                 <h2 className="text-lg font-bold text-white">
-                  {editingReturnId ? "Chỉnh sửa thu tiền về" : "Thêm thu tiền về"}
+                  {editingReturnId
+                    ? "Chỉnh sửa thu tiền về"
+                    : "Thêm thu tiền về"}
                 </h2>
               </div>
               <button
@@ -1866,8 +2000,7 @@ export default function InvestmentAssetDetailClient({
                   onChange={(event) => {
                     const nextValue = event.target.value;
                     if (nextValue === "__new__") {
-                      setCategoryDialogTarget("return");
-                      setShowNewCapitalCategoryInput(true);
+                      openCreateCategoryModal("return");
                       return;
                     }
                     setReturnCategoryId(nextValue);
@@ -1879,6 +2012,9 @@ export default function InvestmentAssetDetailClient({
                     background: "rgba(5,13,8,0.8)",
                   }}
                 >
+                  <option disabled value="" style={{ background: "#0a1a0f" }}>
+                    {returnCategories.length === 0 ? "" : "Chọn danh mục"}
+                  </option>
                   {returnCategories.map((category) => (
                     <option
                       key={category.id}
@@ -1895,6 +2031,19 @@ export default function InvestmentAssetDetailClient({
                     + Tạo danh mục mới
                   </option>
                 </select>
+                <button
+                  type="button"
+                  onClick={() => openCreateCategoryModal("return")}
+                  className="hidden"
+                  style={{
+                    borderColor: "rgba(59,130,246,0.28)",
+                    background: "rgba(59,130,246,0.08)",
+                    color: "#bfdbfe",
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  Táº¡o danh má»¥c má»›i
+                </button>
               </div>
 
               <div>
@@ -2087,9 +2236,7 @@ export default function InvestmentAssetDetailClient({
                       onChange={(event) => {
                         const nextValue = event.target.value;
                         if (nextValue === "__new__") {
-                          setCategoryDialogTarget("capital");
-                          setShowNewCapitalCategoryInput(true);
-                          setCapitalCategoryId(defaultCapitalCategoryId);
+                          openCreateCategoryModal("capital");
                           return;
                         }
                         setCapitalCategoryId(nextValue);
@@ -2101,6 +2248,9 @@ export default function InvestmentAssetDetailClient({
                         background: "rgba(5,13,8,0.8)",
                       }}
                     >
+                      <option value="" style={{ background: "#0a1a0f" }}>
+                        {capitalCategories.length === 0 ? "" : "Chọn danh mục"}
+                      </option>
                       {capitalCategories.map((category) => (
                         <option
                           key={category.id}
@@ -2173,11 +2323,7 @@ export default function InvestmentAssetDetailClient({
         )}
         {showNewCapitalCategoryInput && (
           <ModalOverlay
-            onClose={() => {
-              setShowNewCapitalCategoryInput(false);
-              setNewCapitalCategoryName("");
-              setCapitalError("");
-            }}
+            onClose={closeCreateCategoryModal}
             panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
@@ -2209,11 +2355,7 @@ export default function InvestmentAssetDetailClient({
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setShowNewCapitalCategoryInput(false);
-                  setNewCapitalCategoryName("");
-                  setCapitalError("");
-                }}
+                onClick={closeCreateCategoryModal}
                 className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
                 style={{
                   color: "rgba(191,219,254,0.8)",
@@ -2273,11 +2415,7 @@ export default function InvestmentAssetDetailClient({
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowNewCapitalCategoryInput(false);
-                    setNewCapitalCategoryName("");
-                    setCapitalError("");
-                  }}
+                  onClick={closeCreateCategoryModal}
                   className="rounded-xl border px-4 py-3 text-sm font-semibold"
                   style={{
                     borderColor: "rgba(255,255,255,0.1)",
@@ -2307,4 +2445,3 @@ export default function InvestmentAssetDetailClient({
     </div>
   );
 }
-

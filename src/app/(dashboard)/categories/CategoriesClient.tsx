@@ -2,13 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, Tag, X, ChevronDown, Pencil } from "lucide-react";
+import { Plus, Trash2, Tag, X, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import ModalOverlay from "@/components/ui/ModalOverlay";
 import { Category } from "@/types";
 import Header from "@/components/layout/Header";
 import { useSidebarToggle, useToast } from "../DashboardLayoutClient";
-import { cn } from "@/lib/utils";
 
 interface CategoriesClientProps {
   initialCategories: Category[];
@@ -18,19 +17,47 @@ interface CategoriesClientProps {
 
 const PRESET_COLORS = [
   // Greens
-  "#2D9A4B", "#22c55e", "#16a34a", "#4ade80", "#86efac",
+  "#2D9A4B",
+  "#22c55e",
+  "#16a34a",
+  "#4ade80",
+  "#86efac",
   // Reds & Pinks
-  "#ef4444", "#dc2626", "#f43f5e", "#ec4899", "#db2777",
+  "#ef4444",
+  "#dc2626",
+  "#f43f5e",
+  "#ec4899",
+  "#db2777",
   // Oranges & Yellows
-  "#f97316", "#ea580c", "#fb923c", "#eab308", "#ca8a04",
+  "#f97316",
+  "#ea580c",
+  "#fb923c",
+  "#eab308",
+  "#ca8a04",
   // Blues
-  "#3b82f6", "#2563eb", "#06b6d4", "#0891b2", "#60a5fa",
+  "#3b82f6",
+  "#2563eb",
+  "#06b6d4",
+  "#0891b2",
+  "#60a5fa",
   // Purples & Violets
-  "#8b5cf6", "#7c3aed", "#a855f7", "#6366f1", "#818cf8",
+  "#8b5cf6",
+  "#7c3aed",
+  "#a855f7",
+  "#6366f1",
+  "#818cf8",
   // Teals & Cyans
-  "#14b8a6", "#0d9488", "#22d3ee", "#67e8f9", "#2dd4bf",
+  "#14b8a6",
+  "#0d9488",
+  "#22d3ee",
+  "#67e8f9",
+  "#2dd4bf",
   // Neutrals & Browns
-  "#64748b", "#475569", "#a78bfa", "#f59e0b", "#d97706",
+  "#64748b",
+  "#475569",
+  "#a78bfa",
+  "#f59e0b",
+  "#d97706",
 ];
 
 const ICONS = [
@@ -111,7 +138,7 @@ const ICONS = [
 ];
 
 const ICON_MAP: Record<string, string> = Object.fromEntries(
-  ICONS.map(({ id, emoji }) => [id, emoji])
+  ICONS.map(({ id, emoji }) => [id, emoji]),
 );
 
 const CATEGORY_NAME_MAX_LENGTH = 50;
@@ -152,9 +179,7 @@ function CategoryModal({
   const [color, setColor] = useState(category?.color || "#2D9A4B");
   const [type, setType] = useState<
     "expense" | "income" | "investment" | "business" | "investment_return"
-  >(
-    category?.type || initialType,
-  );
+  >(category?.type || initialType);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -171,7 +196,9 @@ function CategoryModal({
     }
 
     if (trimmedName.length > CATEGORY_NAME_MAX_LENGTH) {
-      setError(`Tên danh mục không được vượt quá ${CATEGORY_NAME_MAX_LENGTH} ký tự.`);
+      setError(
+        `Tên danh mục không được vượt quá ${CATEGORY_NAME_MAX_LENGTH} ký tự.`,
+      );
       return;
     }
 
@@ -183,7 +210,9 @@ function CategoryModal({
 
     const { error: dbError } = isEdit
       ? await supabase.from("categories").update(payload).eq("id", category!.id)
-      : await supabase.from("categories").insert({ ...payload, user_id: userId });
+      : await supabase
+          .from("categories")
+          .insert({ ...payload, user_id: userId });
 
     if (dbError) {
       setError("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -217,170 +246,266 @@ function CategoryModal({
         boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
       }}
     >
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full" style={{ background: "rgba(45,154,75,0.3)" }} />
+      {/* Handle */}
+      <div className="flex justify-center pt-3 pb-1 sm:hidden">
+        <div
+          className="w-10 h-1 rounded-full"
+          style={{ background: "rgba(45,154,75,0.3)" }}
+        />
+      </div>
+
+      {/* Header */}
+      <div
+        className="flex items-center justify-between px-6 py-4 border-b"
+        style={{ borderColor: "rgba(45,154,75,0.12)" }}
+      >
+        <h2 className="text-lg font-bold text-white">
+          {isEdit ? "Chỉnh sửa danh mục" : "Thêm danh mục"}
+        </h2>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-xl flex items-center justify-center"
+          style={{
+            color: "rgba(226,255,232,0.5)",
+            background: "rgba(255,255,255,0.05)",
+          }}
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <form
+        onSubmit={handleSubmit}
+        className="p-6 space-y-5 flex-1 overflow-y-auto custom-scrollbar"
+      >
+        {error && (
+          <div
+            className="px-4 py-3 rounded-xl text-sm"
+            style={{
+              background: "rgba(239,68,68,0.1)",
+              border: "1px solid rgba(239,68,68,0.3)",
+              color: "#fca5a5",
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {/* Type */}
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Loại
+          </label>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {(
+              [
+                "expense",
+                "income",
+                "investment",
+                "business",
+                "investment_return",
+              ] as const
+            ).map((t) => {
+              const cfg = {
+                expense: {
+                  label: "Chi tiêu",
+                  bg: "rgba(239,68,68,0.2)",
+                  border: "rgba(239,68,68,0.4)",
+                  text: "#fca5a5",
+                },
+                income: {
+                  label: "Thu nhập",
+                  bg: "rgba(45,154,75,0.2)",
+                  border: "rgba(45,154,75,0.4)",
+                  text: "#4ade80",
+                },
+                investment: {
+                  label: "Đầu tư",
+                  bg: "rgba(59,130,246,0.2)",
+                  border: "rgba(59,130,246,0.4)",
+                  text: "#93c5fd",
+                },
+                business: {
+                  label: "Rót vốn (business)",
+                  bg: "rgba(168,85,247,0.2)",
+                  border: "rgba(168,85,247,0.4)",
+                  text: "#d8b4fe",
+                },
+                investment_return: {
+                  label: "Thu tiền về (business)",
+                  bg: "rgba(234,179,8,0.2)",
+                  border: "rgba(234,179,8,0.4)",
+                  text: "#fde68a",
+                },
+              }[t];
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setType(t)}
+                  className="py-2.5 rounded-xl text-sm font-medium transition-all"
+                  style={{
+                    background: type === t ? cfg.bg : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${type === t ? cfg.border : "rgba(255,255,255,0.08)"}`,
+                    color: type === t ? cfg.text : "rgba(226,255,232,0.4)",
+                  }}
+                >
+                  {cfg.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b"
-          style={{ borderColor: "rgba(45,154,75,0.12)" }}>
-          <h2 className="text-lg font-bold text-white">
-            {isEdit ? "Chỉnh sửa danh mục" : "Thêm danh mục"}
-          </h2>
-          <button onClick={onClose} className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ color: "rgba(226,255,232,0.5)", background: "rgba(255,255,255,0.05)" }}>
-            <X className="w-4 h-4" />
+        {/* Name */}
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Tên danh mục
+          </label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (error) setError("");
+            }}
+            placeholder="Ví dụ: Ăn uống, Du lịch..."
+            required
+            maxLength={CATEGORY_NAME_MAX_LENGTH}
+            style={inputStyle}
+          />
+          <div
+            className="mt-2 flex items-center justify-between text-xs"
+            style={{ color: "rgba(226,255,232,0.38)" }}
+          >
+            <span>Tối đa {CATEGORY_NAME_MAX_LENGTH} ký tự</span>
+            <span>
+              {name.trim().length}/{CATEGORY_NAME_MAX_LENGTH}
+            </span>
+          </div>
+        </div>
+
+        {/* Color */}
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Màu sắc
+          </label>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(28px,1fr))] gap-2">
+            {PRESET_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                className="w-7 h-7 rounded-lg transition-all"
+                style={{
+                  background: c,
+                  boxShadow:
+                    color === c
+                      ? `0 0 0 2px rgba(255,255,255,0.25), 0 0 8px ${c}80`
+                      : "none",
+                  transform: color === c ? "scale(1.2)" : "scale(1)",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Icon */}
+        <div>
+          <label
+            className="block text-xs font-semibold uppercase tracking-wide mb-2"
+            style={{ color: "rgba(226,255,232,0.5)" }}
+          >
+            Biểu tượng
+          </label>
+          <div className="grid grid-cols-8 gap-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
+            {ICONS.map((ic) => (
+              <button
+                key={ic.id}
+                type="button"
+                onClick={() => setIcon(ic.id)}
+                className="h-9 rounded-lg flex items-center justify-center text-base transition-all"
+                style={{
+                  background:
+                    icon === ic.id ? `${color}20` : "rgba(255,255,255,0.04)",
+                  border: `1px solid ${icon === ic.id ? `${color}50` : "rgba(255,255,255,0.06)"}`,
+                  boxShadow: icon === ic.id ? `0 0 8px ${color}40` : "none",
+                }}
+                title={ic.label}
+              >
+                {ic.emoji}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div
+          className="flex items-center gap-3 p-3 rounded-xl"
+          style={{
+            background: "rgba(45,154,75,0.05)",
+            border: "1px solid rgba(45,154,75,0.1)",
+          }}
+        >
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+            style={{ background: `${color}22`, border: `1px solid ${color}33` }}
+          >
+            {ICON_MAP[icon] || "⚪"}
+          </div>
+          <div>
+            <p className="text-sm font-medium text-white">
+              {name || "Tên danh mục"}
+            </p>
+            <p className="text-xs" style={{ color: "rgba(226,255,232,0.4)" }}>
+              {CATEGORY_TYPE_LABELS[type]}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(226,255,232,0.6)",
+            }}
+          >
+            Huỷ
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-[2] btn-primary flex items-center justify-center gap-2"
+          >
+            {loading ? (
+              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <>
+                {isEdit ? (
+                  <Pencil className="w-4 h-4" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}{" "}
+                {isEdit ? "Lưu thay đổi" : "Tạo danh mục"}
+              </>
+            )}
           </button>
         </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="p-6 space-y-5 flex-1 overflow-y-auto custom-scrollbar"
-        >
-          {error && (
-            <div className="px-4 py-3 rounded-xl text-sm"
-              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#fca5a5" }}>
-              {error}
-            </div>
-          )}
-
-          {/* Type */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>Loại</label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-              {(
-                [
-                  "expense",
-                  "income",
-                  "investment",
-                  "business",
-                  "investment_return",
-                ] as const
-              ).map((t) => {
-                const cfg = {
-                  expense:    { label: "Chi tiêu",  bg: "rgba(239,68,68,0.2)",   border: "rgba(239,68,68,0.4)",   text: "#fca5a5" },
-                  income:     { label: "Thu nhập",  bg: "rgba(45,154,75,0.2)",   border: "rgba(45,154,75,0.4)",   text: "#4ade80" },
-                  investment: { label: "Đầu tư",    bg: "rgba(59,130,246,0.2)",  border: "rgba(59,130,246,0.4)",  text: "#93c5fd" },
-                  business: { label: "Rót vốn (business)",    bg: "rgba(168,85,247,0.2)",  border: "rgba(168,85,247,0.4)",  text: "#d8b4fe" },
-                  investment_return: { label: "Thu tiền về (business)", bg: "rgba(234,179,8,0.2)", border: "rgba(234,179,8,0.4)", text: "#fde68a" },
-                }[t];
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setType(t)}
-                    className="py-2.5 rounded-xl text-sm font-medium transition-all"
-                    style={{
-                      background: type === t ? cfg.bg : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${type === t ? cfg.border : "rgba(255,255,255,0.08)"}`,
-                      color: type === t ? cfg.text : "rgba(226,255,232,0.4)",
-                    }}
-                  >
-                    {cfg.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Name */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>Tên danh mục</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (error) setError("");
-              }}
-              placeholder="Ví dụ: Ăn uống, Du lịch..."
-              required
-              maxLength={CATEGORY_NAME_MAX_LENGTH}
-              style={inputStyle}
-            />
-            <div className="mt-2 flex items-center justify-between text-xs" style={{ color: "rgba(226,255,232,0.38)" }}>
-              <span>Tối đa {CATEGORY_NAME_MAX_LENGTH} ký tự</span>
-              <span>{name.trim().length}/{CATEGORY_NAME_MAX_LENGTH}</span>
-            </div>
-          </div>
-
-          {/* Color */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>Màu sắc</label>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(28px,1fr))] gap-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setColor(c)}
-                  className="w-7 h-7 rounded-lg transition-all"
-                  style={{
-                    background: c,
-                    boxShadow: color === c ? `0 0 0 2px rgba(255,255,255,0.25), 0 0 8px ${c}80` : "none",
-                    transform: color === c ? "scale(1.2)" : "scale(1)",
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Icon */}
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wide mb-2"
-              style={{ color: "rgba(226,255,232,0.5)" }}>Biểu tượng</label>
-            <div className="grid grid-cols-8 gap-1.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
-              {ICONS.map((ic) => (
-                <button
-                  key={ic.id}
-                  type="button"
-                  onClick={() => setIcon(ic.id)}
-                  className="h-9 rounded-lg flex items-center justify-center text-base transition-all"
-                  style={{
-                    background: icon === ic.id ? `${color}20` : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${icon === ic.id ? `${color}50` : "rgba(255,255,255,0.06)"}`,
-                    boxShadow: icon === ic.id ? `0 0 8px ${color}40` : "none",
-                  }}
-                  title={ic.label}
-                >
-                  {ic.emoji}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Preview */}
-          <div className="flex items-center gap-3 p-3 rounded-xl"
-            style={{ background: "rgba(45,154,75,0.05)", border: "1px solid rgba(45,154,75,0.1)" }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-              style={{ background: `${color}22`, border: `1px solid ${color}33` }}>
-              {ICON_MAP[icon] || "⚪"}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-white">{name || "Tên danh mục"}</p>
-              <p className="text-xs" style={{ color: "rgba(226,255,232,0.4)" }}>
-                {CATEGORY_TYPE_LABELS[type]}
-              </p>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(226,255,232,0.6)" }}>
-              Huỷ
-            </button>
-            <button type="submit" disabled={loading} className="flex-[2] btn-primary flex items-center justify-center gap-2">
-              {loading
-                ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                : <>{isEdit ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />} {isEdit ? "Lưu thay đổi" : "Tạo danh mục"}</>
-              }
-            </button>
-          </div>
-        </form>
+      </form>
     </ModalOverlay>
   );
 }
@@ -400,11 +525,22 @@ export default function CategoriesClient({
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: string, name: string) => {
     if (expenseCounts[id] > 0) {
-      alert("Không thể xoá danh mục đang có chi tiêu. Vui lòng xoá chi tiêu liên quan trước.");
+      alert(
+        "Không thể xoá danh mục đang có giao dịch. Vui lòng xoá các giao dịch liên quan trước.",
+      );
       return;
     }
+
+    const confirmed = window.confirm(
+      `Bạn có chắc muốn xoá danh mục "${name}" không?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
     setDeleteId(id);
     const supabase = createClient();
     await supabase.from("categories").delete().eq("id", id);
@@ -445,11 +581,36 @@ export default function CategoriesClient({
             ] as const
           ).map((tab) => {
             const cfg = {
-              expense:    { label: "Chi tiêu", bg: "rgba(239,68,68,0.15)",  border: "rgba(239,68,68,0.3)",  text: "#fca5a5" },
-              income:     { label: "Thu nhập", bg: "rgba(45,154,75,0.15)",  border: "rgba(45,154,75,0.3)",  text: "#4ade80" },
-              investment: { label: "Đầu tư",   bg: "rgba(59,130,246,0.15)", border: "rgba(59,130,246,0.3)", text: "#93c5fd" },
-              business: { label: "Rót vốn (business)",   bg: "rgba(168,85,247,0.15)", border: "rgba(168,85,247,0.3)", text: "#d8b4fe" },
-              investment_return: { label: "Thu tiền về (business)", bg: "rgba(234,179,8,0.15)", border: "rgba(234,179,8,0.3)", text: "#fde68a" },
+              expense: {
+                label: "Chi tiêu",
+                bg: "rgba(239,68,68,0.15)",
+                border: "rgba(239,68,68,0.3)",
+                text: "#fca5a5",
+              },
+              income: {
+                label: "Thu nhập",
+                bg: "rgba(45,154,75,0.15)",
+                border: "rgba(45,154,75,0.3)",
+                text: "#4ade80",
+              },
+              investment: {
+                label: "Đầu tư",
+                bg: "rgba(59,130,246,0.15)",
+                border: "rgba(59,130,246,0.3)",
+                text: "#93c5fd",
+              },
+              business: {
+                label: "Rót vốn (business)",
+                bg: "rgba(168,85,247,0.15)",
+                border: "rgba(168,85,247,0.3)",
+                text: "#d8b4fe",
+              },
+              investment_return: {
+                label: "Thu tiền về (business)",
+                bg: "rgba(234,179,8,0.15)",
+                border: "rgba(234,179,8,0.3)",
+                text: "#fde68a",
+              },
             }[tab];
             return (
               <button
@@ -459,14 +620,15 @@ export default function CategoriesClient({
                 style={{
                   background: activeTab === tab ? cfg.bg : "transparent",
                   color: activeTab === tab ? cfg.text : "rgba(226,255,232,0.4)",
-                  border: activeTab === tab ? `1px solid ${cfg.border}` : "1px solid transparent",
+                  border:
+                    activeTab === tab
+                      ? `1px solid ${cfg.border}`
+                      : "1px solid transparent",
                 }}
               >
-                <span className="block text-center">
-                  {cfg.label}
-                </span>
+                <span className="block text-center">{cfg.label}</span>
                 <span className="mt-0.5 block text-center text-[11px] opacity-70">
-                  ({initialCategories.filter(c => c.type === tab).length})
+                  ({initialCategories.filter((c) => c.type === tab).length})
                 </span>
               </button>
             );
@@ -475,7 +637,10 @@ export default function CategoriesClient({
 
         {/* Add button */}
         <button
-          onClick={() => { setEditCategory(undefined); setShowModal(true); }}
+          onClick={() => {
+            setEditCategory(undefined);
+            setShowModal(true);
+          }}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-dashed border-2 text-sm font-medium mb-4 transition-all hover:border-primary/40 hover:bg-primary/5"
           style={{
             borderColor: "rgba(45,154,75,0.2)",
@@ -514,9 +679,14 @@ export default function CategoriesClient({
                     {category.name}
                   </p>
                   <div className="flex items-center gap-2 mt-1">
-                    <div className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ background: category.color }} />
-                    <p className="text-xs" style={{ color: "rgba(226,255,232,0.4)" }}>
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0"
+                      style={{ background: category.color }}
+                    />
+                    <p
+                      className="text-xs"
+                      style={{ color: "rgba(226,255,232,0.4)" }}
+                    >
                       {expenseCounts[category.id] || 0} giao dịch
                     </p>
                   </div>
@@ -524,22 +694,26 @@ export default function CategoriesClient({
 
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
-                    onClick={() => { setEditCategory(category); setShowModal(true); }}
+                    onClick={() => {
+                      setEditCategory(category);
+                      setShowModal(true);
+                    }}
                     className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-blue-500/15"
                     style={{ color: "rgba(226,255,232,0.4)" }}
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
                   <button
-                    onClick={() => handleDelete(category.id)}
+                    onClick={() => handleDelete(category.id, category.name)}
                     disabled={deleteId === category.id}
                     className="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:bg-red-500/15"
                     style={{ color: "rgba(226,255,232,0.4)" }}
                   >
-                    {deleteId === category.id
-                      ? <div className="w-3 h-3 border border-red-400/50 border-t-red-400 rounded-full animate-spin" />
-                      : <Trash2 className="w-3.5 h-3.5" />
-                    }
+                    {deleteId === category.id ? (
+                      <div className="w-3 h-3 border border-red-400/50 border-t-red-400 rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -547,14 +721,22 @@ export default function CategoriesClient({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-              style={{ background: "rgba(45,154,75,0.1)", border: "1px solid rgba(45,154,75,0.15)" }}>
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+              style={{
+                background: "rgba(45,154,75,0.1)",
+                border: "1px solid rgba(45,154,75,0.15)",
+              }}
+            >
               <Tag className="w-7 h-7" style={{ color: "#2D9A4B" }} />
             </div>
             <p className="text-sm font-medium dark:text-white text-gray-900">
               Chưa có danh mục {CATEGORY_TYPE_LABELS[activeTab]}
             </p>
-            <p className="text-xs mt-2" style={{ color: "rgba(226,255,232,0.4)" }}>
+            <p
+              className="text-xs mt-2"
+              style={{ color: "rgba(226,255,232,0.4)" }}
+            >
               Tạo danh mục để phân loại giao dịch của bạn
             </p>
           </div>
@@ -563,7 +745,10 @@ export default function CategoriesClient({
 
       {/* FAB mobile */}
       <button
-        onClick={() => { setEditCategory(undefined); setShowModal(true); }}
+        onClick={() => {
+          setEditCategory(undefined);
+          setShowModal(true);
+        }}
         className="fixed bottom-6 right-6 w-14 h-14 rounded-2xl lg:hidden flex items-center justify-center shadow-2xl z-20"
         style={{
           background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",

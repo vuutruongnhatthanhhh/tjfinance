@@ -11,6 +11,7 @@ import {
   Landmark,
   LayoutDashboard,
   LogOut,
+  Mailbox,
   Tag,
   Wallet,
   X,
@@ -18,6 +19,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import AccountSettingsModal from "./AccountSettingsModal";
+import FeedbackModal from "./FeedbackModal";
 
 interface NavItem {
   href: string;
@@ -48,7 +50,7 @@ const navItems: NavItem[] = [
   },
   {
     href: "/investment-portfolio",
-    label: "Danh mục chi tiêu",
+    label: "Danh mục đầu tư",
     icon: <Wallet className="h-5 w-5" />,
   },
   {
@@ -76,6 +78,12 @@ export default function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+
+  const openFeedbackModal = () => {
+    setShowFeedbackModal(true);
+    onClose();
+  };
 
   useEffect(() => {
     router.prefetch("/investments");
@@ -190,6 +198,18 @@ export default function Sidebar({
             </div>
           </div>
         </div>
+        <button
+          type="button"
+          onClick={openFeedbackModal}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 hover:bg-[rgba(45,154,75,0.1)]"
+          style={{
+            background: "rgba(45,154,75,0.04)",
+            color: "rgba(226,255,232,0.78)",
+          }}
+        >
+          <Mailbox className="h-5 w-5" />
+          Hòm thư góp ý
+        </button>
         <button
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-all duration-200 hover:bg-red-500/10"
@@ -318,6 +338,22 @@ export default function Sidebar({
             </div>
 
             <button
+              type="button"
+              onClick={openFeedbackModal}
+              className="flex w-full items-center rounded-xl px-[14px] py-2.5 text-sm font-medium transition-all duration-300 hover:bg-[rgba(45,154,75,0.1)] group-hover/sidebar:px-3"
+              style={{
+                color: "rgba(226,255,232,0.78)",
+                background: "rgba(45,154,75,0.04)",
+              }}
+            >
+              <Mailbox className="h-5 w-5 flex-shrink-0" />
+              <span className="w-0 flex-shrink-0 transition-[width] duration-300 group-hover/sidebar:w-3" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
+                Hòm thư góp ý
+              </span>
+            </button>
+
+            <button
               onClick={handleLogout}
               className="flex w-full items-center rounded-xl px-[14px] py-2.5 text-sm font-medium text-red-400 transition-all duration-300 hover:bg-red-500/10 group-hover/sidebar:px-3"
             >
@@ -363,6 +399,14 @@ export default function Sidebar({
           showToast={showToast}
           onSaved={() => router.refresh()}
           onClose={() => setShowAccountModal(false)}
+        />
+      )}
+
+      {showFeedbackModal && (
+        <FeedbackModal
+          userEmail={userEmail}
+          showToast={showToast}
+          onClose={() => setShowFeedbackModal(false)}
         />
       )}
     </>

@@ -289,13 +289,34 @@ export default function DashboardClient({
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number) => formatCurrency(value)}
-                      contentStyle={{
-                        background: "rgba(10,20,13,0.95)",
-                        border: "1px solid rgba(45,154,75,0.3)",
-                        borderRadius: "12px",
-                        color: "#e2ffe8",
-                        fontSize: "12px",
+                      cursor={{ fill: "rgba(45,154,75,0.08)" }}
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) {
+                          return null;
+                        }
+
+                        const item = payload[0];
+                        const name = String(item.name || "");
+                        const value = Number(item.value || 0);
+
+                        return (
+                          <div
+                            className="rounded-xl border px-3 py-2 text-xs shadow-xl"
+                            style={{
+                              background: "rgba(10,20,13,0.98)",
+                              borderColor: "rgba(45,154,75,0.35)",
+                              color: "#e2ffe8",
+                              boxShadow: "0 16px 40px rgba(0,0,0,0.35)",
+                            }}
+                          >
+                            <div className="font-medium" style={{ color: "#e2ffe8" }}>
+                              {name}
+                            </div>
+                            <div className="mt-1" style={{ color: "#aaf0be" }}>
+                              {formatCurrency(value)}
+                            </div>
+                          </div>
+                        );
                       }}
                     />
                   </PieChart>

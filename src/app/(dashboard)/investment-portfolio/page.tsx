@@ -11,6 +11,7 @@ export interface InvestmentAssetSummary {
   profitLossAmount: number;
   profitLossPercent: number;
   latestValuation?: InvestmentValuation;
+  canDelete: boolean;
 }
 
 export default async function InvestmentPortfolioPage() {
@@ -73,7 +74,7 @@ export default async function InvestmentPortfolioPage() {
     const currentValue = latestValuation
       ? Number(latestValuation.current_value)
       : totalInvested;
-    const profitLossAmount = currentValue + totalReturned - totalInvested;
+    const profitLossAmount = currentValue - totalInvested;
     const profitLossPercent =
       totalInvested > 0 ? (profitLossAmount / totalInvested) * 100 : 0;
 
@@ -85,6 +86,7 @@ export default async function InvestmentPortfolioPage() {
       profitLossAmount,
       profitLossPercent,
       latestValuation,
+      canDelete: assetInvestments.length === 0 && assetReturns.length === 0,
     };
   });
 
