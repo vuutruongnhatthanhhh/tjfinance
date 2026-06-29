@@ -261,6 +261,9 @@ function AddExpenseModal({
   const [categoryId, setCategoryId] = useState(
     expense?.category_id || defaultTransactionCategories[0]?.id || "",
   );
+  const [assetCategoryId, setAssetCategoryId] = useState(
+    expense?.asset?.category_id || investmentCategories[0]?.id || "",
+  );
   const [selectedAssetId, setSelectedAssetId] = useState(
     expense?.asset_id || "",
   );
@@ -285,7 +288,6 @@ function AddExpenseModal({
   const isCreatingNewAsset = !selectedAssetId && hasNewAssetDraft;
   const isCategoryLocked = isInvestment && Boolean(selectedExistingAsset);
   const transactionCategories = defaultTransactionCategories;
-  const assetCategoryId = isInvestment ? categoryId || null : null;
   const assetAccordionSummary = isCreatingNewAsset
     ? assetName || "Khoản đầu tư mới"
     : selectedExistingAsset?.name || "Chưa chọn khoản đầu tư";
@@ -299,6 +301,24 @@ function AddExpenseModal({
       setCategoryId(transactionCategories[0]?.id || "");
     }
   }, [categoryId, isInvestment, transactionCategories]);
+
+  useEffect(() => {
+    if (!isInvestment) {
+      return;
+    }
+
+    if (!investmentCategories.some((category) => category.id === assetCategoryId)) {
+      setAssetCategoryId(investmentCategories[0]?.id || "");
+    }
+  }, [assetCategoryId, investmentCategories, isInvestment]);
+
+  useEffect(() => {
+    if (!isInvestment || selectedExistingAsset || !assetCategoryId) {
+      return;
+    }
+
+    setCategoryId(assetCategoryId);
+  }, [assetCategoryId, isInvestment, selectedExistingAsset]);
 
   const openCreateAssetModal = () => {
     setAssetDraftError("");
@@ -322,7 +342,7 @@ function AddExpenseModal({
       return;
     }
 
-    if (!categoryId) {
+    if (!assetCategoryId) {
       setAssetDraftError("Vui lòng chọn danh mục đầu tư.");
       return;
     }
@@ -412,9 +432,13 @@ function AddExpenseModal({
       }
     }
 
+    const resolvedCategoryId = isInvestment
+      ? selectedExistingAsset?.category_id || assetCategoryId || null
+      : categoryId || null;
+
     const payload = {
       user_id: userId,
-      category_id: categoryId || null,
+      category_id: resolvedCategoryId,
       amount: amountNumber,
       description,
       note: note || null,
@@ -627,6 +651,9 @@ function AddExpenseModal({
                               setAssetName("");
                               setAssetDescription("");
                               setIsBusiness(false);
+                              setAssetCategoryId(
+                                investmentCategories[0]?.id || "",
+                              );
                               openCreateAssetModal();
                               return;
                             }
@@ -638,6 +665,9 @@ function AddExpenseModal({
                                 setAssetName("");
                                 setAssetDescription("");
                                 setIsBusiness(false);
+                                setAssetCategoryId(
+                                  investmentCategories[0]?.id || "",
+                                );
                               }
                               return;
                             }
@@ -653,7 +683,10 @@ function AddExpenseModal({
                               );
                               setIsBusiness(selectedAsset.is_business);
                               if (selectedAsset.category_id) {
+                                setAssetCategoryId(selectedAsset.category_id);
                                 setCategoryId(selectedAsset.category_id);
+                              } else {
+                                setCategoryId(investmentCategories[0]?.id || "");
                               }
                               setIsAssetAccordionOpen(false);
                             }
@@ -786,50 +819,44 @@ function AddExpenseModal({
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div>
-              <label
-                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                style={{ color: "rgba(226,255,232,0.5)" }}
-              >
-                Danh mục
-              </label>
-              <div className="relative">
-                <select
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                  disabled={isCategoryLocked}
-                  style={{
-                    ...inputStyle,
-                    paddingRight: "36px",
-                    appearance: "none",
-                    cursor: "pointer",
-                    opacity: isCategoryLocked ? 0.65 : 1,
-                  }}
+            {!isInvestment && (
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.5)" }}
                 >
-                  {transactionCategories.map((category) => (
-                    <option
-                      key={category.id}
-                      value={category.id}
-                      style={{ background: "#0a1a0f" }}
-                    >
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
-                  style={{ color: "rgba(226,255,232,0.4)" }}
-                />
+                  Danh mục
+                </label>
+                <div className="relative">
+                  <select
+                    value={categoryId}
+                    onChange={(event) => setCategoryId(event.target.value)}
+                    disabled={isCategoryLocked}
+                    style={{
+                      ...inputStyle,
+                      paddingRight: "36px",
+                      appearance: "none",
+                      cursor: "pointer",
+                      opacity: isCategoryLocked ? 0.65 : 1,
+                    }}
+                  >
+                    {transactionCategories.map((category) => (
+                      <option
+                        key={category.id}
+                        value={category.id}
+                        style={{ background: "#0a1a0f" }}
+                      >
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown
+                    className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
+                    style={{ color: "rgba(226,255,232,0.4)" }}
+                  />
+                </div>
               </div>
-              {/* {isCategoryLocked && (
-                <p
-                  className="mt-2 text-xs"
-                  style={{ color: "rgba(226,255,232,0.4)" }}
-                >
-                  Danh mục bị khóa vì anh đang chọn khoản đầu tư có sẵn.
-                </p>
-              )} */}
-            </div>
+            )}
 
             <div>
               <label
@@ -1004,8 +1031,8 @@ function AddExpenseModal({
               </label>
               <div className="relative">
                 <select
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
+                  value={assetCategoryId}
+                  onChange={(event) => setAssetCategoryId(event.target.value)}
                   style={{
                     ...inputStyle,
                     paddingRight: "36px",
@@ -1013,7 +1040,7 @@ function AddExpenseModal({
                     cursor: "pointer",
                   }}
                 >
-                  {transactionCategories.map((category) => (
+                  {investmentCategories.map((category) => (
                     <option
                       key={category.id}
                       value={category.id}
@@ -1052,12 +1079,23 @@ function AddExpenseModal({
                 <input
                   type="checkbox"
                   checked={isBusiness}
-                  onChange={(event) => setIsBusiness(event.target.checked)}
+                  onChange={(event) => {
+                    const nextIsBusiness = event.target.checked;
+                    setIsBusiness(nextIsBusiness);
+                    setCategoryId(assetCategoryId || investmentCategories[0]?.id || "");
+                  }}
                   className="h-4 w-4 rounded border-primary/40 bg-transparent text-primary focus:ring-primary/20"
                 />
                 Business
               </label>
             </div>
+
+            <p
+              className="text-xs"
+              style={{ color: "rgba(226,255,232,0.45)" }}
+            >
+              Danh mục giao dịch sẽ tự lấy theo danh mục của khoản đầu tư.
+            </p>
 
             <div className="flex justify-end gap-2 pt-2">
               <button
