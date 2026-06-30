@@ -106,7 +106,7 @@ export default function Sidebar({
   };
 
   const handleMobileNavigate = (href: string) => {
-    if (pathname === href || pathname.startsWith(`${href}/`)) {
+    if (pathname === href) {
       onClose();
       return;
     }
