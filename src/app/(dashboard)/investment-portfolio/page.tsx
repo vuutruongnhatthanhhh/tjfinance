@@ -74,7 +74,9 @@ export default async function InvestmentPortfolioPage() {
     const currentValue = latestValuation
       ? Number(latestValuation.current_value)
       : totalInvested;
-    const profitLossAmount = currentValue - totalInvested;
+    const profitLossAmount = asset.is_business
+      ? totalReturned - totalInvested
+      : currentValue - totalInvested;
     const profitLossPercent =
       totalInvested > 0 ? (profitLossAmount / totalInvested) * 100 : 0;
 
@@ -90,15 +92,18 @@ export default async function InvestmentPortfolioPage() {
     };
   });
 
-  const overallInvested = summaries.reduce(
+  const nonBusinessSummaries = summaries.filter((item) => !item.asset.is_business);
+  const businessSummaries = summaries.filter((item) => item.asset.is_business);
+
+  const investmentOnlyOverallInvested = nonBusinessSummaries.reduce(
     (sum, item) => sum + item.totalInvested,
     0,
   );
-  const overallCurrent = summaries.reduce(
+  const investmentOnlyOverallCurrent = nonBusinessSummaries.reduce(
     (sum, item) => sum + item.currentValue,
     0,
   );
-  const overallReturned = summaries.reduce(
+  const businessOnlyOverallReturned = businessSummaries.reduce(
     (sum, item) => sum + item.totalReturned,
     0,
   );
@@ -106,9 +111,9 @@ export default async function InvestmentPortfolioPage() {
   return (
     <InvestmentPortfolioClient
       summaries={summaries}
-      overallInvested={overallInvested}
-      overallCurrent={overallCurrent}
-      overallReturned={overallReturned}
+      overallInvested={investmentOnlyOverallInvested}
+      overallCurrent={investmentOnlyOverallCurrent}
+      overallReturned={businessOnlyOverallReturned}
     />
   );
 }

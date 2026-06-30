@@ -212,7 +212,9 @@ export default async function InvestmentAssetDetailPage({
   const currentValue = latestValuation
     ? Number(latestValuation.current_value)
     : totalInvested;
-  const profitLossAmount = currentValue - totalInvested;
+  const profitLossAmount = asset.is_business
+    ? totalReturned - totalInvested
+    : currentValue - totalInvested;
   const profitLossPercent =
     totalInvested > 0 ? (profitLossAmount / totalInvested) * 100 : 0;
 

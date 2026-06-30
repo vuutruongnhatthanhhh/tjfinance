@@ -38,7 +38,13 @@ export default function InvestmentPortfolioClient({
   const [isPending, startTransition] = useTransition();
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-  const overallProfitLoss = overallCurrent - overallInvested;
+  const overallProfitLoss = summaries.reduce(
+    (sum, summary) =>
+      summary.asset.is_business ? sum : sum + summary.profitLossAmount,
+    0,
+  );
+  const overallProfitLossPercent =
+    overallInvested > 0 ? (overallProfitLoss / overallInvested) * 100 : 0;
   const overallProfitLossColor =
     overallProfitLoss > 0
       ? "#4ade80"
@@ -238,7 +244,7 @@ export default function InvestmentPortfolioClient({
             title="Lời / lỗ tạm tính"
             value={formatCurrency(overallProfitLoss)}
             valueColor={overallProfitLossColor}
-            subtitle="Giá trị hiện tại - vốn"
+            subtitle={`${overallProfitLossPercent.toFixed(2)}% so với vốn`}
             icon={
               overallProfitLoss >= 0 ? (
                 <TrendingUp className="h-6 w-6" />
