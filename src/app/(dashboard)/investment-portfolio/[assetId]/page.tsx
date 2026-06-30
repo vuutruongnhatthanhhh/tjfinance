@@ -1,14 +1,46 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { Category, Expense, InvestmentAsset, InvestmentReturn, InvestmentValuation } from "@/types";
+import {
+  Category,
+  Expense,
+  InvestmentAsset,
+  InvestmentReturn,
+  InvestmentValuation,
+} from "@/types";
 import InvestmentAssetDetailClient from "./InvestmentAssetDetailClient";
+
+const CAPITAL_PAGE_SIZE = 10;
+const RETURN_PAGE_SIZE = 10;
+const VALUATION_PAGE_SIZE = 10;
+
+type DetailSearchParams = {
+  valuation_page?: string | string[];
+  return_q?: string | string[];
+  return_category?: string | string[];
+  return_page?: string | string[];
+  capital_q?: string | string[];
+  capital_category?: string | string[];
+  capital_page?: string | string[];
+};
+
+function firstParam(value: string | string[] | undefined): string {
+  if (Array.isArray(value)) return value[0] || "";
+  return value || "";
+}
+
+function escapeSearchValue(value: string) {
+  return value.replaceAll(",", "\\,");
+}
 
 export default async function InvestmentAssetDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ assetId: string }> | { assetId: string };
+  searchParams?: DetailSearchParams | Promise<DetailSearchParams>;
 }) {
   const resolvedParams = await Promise.resolve(params);
+  const resolvedSearchParams = await Promise.resolve(searchParams);
   const supabase = await createClient();
   const {
     data: { user },
@@ -17,8 +49,30 @@ export default async function InvestmentAssetDetailPage({
   if (!user) redirect("/login");
 
   const assetId = resolvedParams.assetId;
+  const valuationPage = Math.max(
+    1,
+    Number.parseInt(firstParam(resolvedSearchParams?.valuation_page), 10) || 1,
+  );
+  const returnSearchQuery = firstParam(resolvedSearchParams?.return_q).trim();
+  const returnCategoryFilter =
+    firstParam(resolvedSearchParams?.return_category).trim() || "all";
+  const returnPage = Math.max(
+    1,
+    Number.parseInt(firstParam(resolvedSearchParams?.return_page), 10) || 1,
+  );
+  const capitalSearchQuery = firstParam(resolvedSearchParams?.capital_q).trim();
+  const capitalCategoryFilter =
+    firstParam(resolvedSearchParams?.capital_category).trim() || "all";
+  const capitalPage = Math.max(
+    1,
+    Number.parseInt(firstParam(resolvedSearchParams?.capital_page), 10) || 1,
+  );
 
-  const [{ data: asset }, { data: investments }, { data: valuations }, { data: returns }, { data: investmentCategories }] =
+  const [
+    { data: asset },
+    { data: latestValuation },
+    { data: investmentCategories },
+  ] =
     await Promise.all([
       supabase
         .from("investment_assets")
@@ -27,24 +81,14 @@ export default async function InvestmentAssetDetailPage({
         .eq("id", assetId)
         .single(),
       supabase
-        .from("investments")
-        .select("*, category:categories(*)")
-        .eq("user_id", user.id)
-        .eq("asset_id", assetId)
-        .order("date", { ascending: false }),
-      supabase
         .from("investment_valuations")
         .select("*")
         .eq("user_id", user.id)
         .eq("asset_id", assetId)
         .order("valuation_month", { ascending: false })
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("investment_returns")
-        .select("*, category:categories(*)")
-        .eq("user_id", user.id)
-        .eq("asset_id", assetId)
-        .order("date", { ascending: false }),
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
       supabase
         .from("categories")
         .select("*")
@@ -55,16 +99,119 @@ export default async function InvestmentAssetDetailPage({
 
   if (!asset) notFound();
 
-  const totalInvested = (investments || []).reduce(
+  const initialCapitalCategoryOptions = (investmentCategories || []).filter(
+    (category) =>
+      category.type === (asset.is_business ? "business" : "investment"),
+  );
+  const initialReturnCategoryOptions = (investmentCategories || []).filter(
+    (category) => category.type === "investment_return",
+  );
+
+  const normalizedReturnCategoryFilter =
+    returnCategoryFilter !== "all" &&
+    initialReturnCategoryOptions.some(
+      (category) => category.id === returnCategoryFilter,
+    )
+      ? returnCategoryFilter
+      : "all";
+  const normalizedCapitalCategoryFilter =
+    asset.is_business &&
+    capitalCategoryFilter !== "all" &&
+    initialCapitalCategoryOptions.some(
+      (category) => category.id === capitalCategoryFilter,
+    )
+      ? capitalCategoryFilter
+      : "all";
+
+  let returnsQuery = supabase
+    .from("investment_returns")
+    .select("*, category:categories(*)", { count: "exact" })
+    .eq("user_id", user.id)
+    .eq("asset_id", assetId);
+
+  if (returnSearchQuery) {
+    const escapedSearch = escapeSearchValue(returnSearchQuery);
+    returnsQuery = returnsQuery.or(
+      `description.ilike.%${escapedSearch}%,note.ilike.%${escapedSearch}%`,
+    );
+  }
+
+  if (normalizedReturnCategoryFilter !== "all") {
+    returnsQuery = returnsQuery.eq("category_id", normalizedReturnCategoryFilter);
+  }
+
+  let capitalQuery = supabase
+    .from("investments")
+    .select("*, category:categories(*)", { count: "exact" })
+    .eq("user_id", user.id)
+    .eq("asset_id", assetId);
+
+  if (capitalSearchQuery) {
+    const escapedSearch = escapeSearchValue(capitalSearchQuery);
+    capitalQuery = capitalQuery.or(
+      `description.ilike.%${escapedSearch}%,note.ilike.%${escapedSearch}%`,
+    );
+  }
+
+  if (normalizedCapitalCategoryFilter !== "all") {
+    capitalQuery = capitalQuery.eq("category_id", normalizedCapitalCategoryFilter);
+  }
+
+  const [
+    { data: paginatedValuations, count: filteredValuationCount },
+    { data: paginatedReturns, count: filteredReturnCount },
+    { data: paginatedInvestments, count: filteredCapitalCount },
+    { data: allReturns },
+    { data: allInvestments },
+  ] = await Promise.all([
+    supabase
+      .from("investment_valuations")
+      .select("*", { count: "exact" })
+      .eq("user_id", user.id)
+      .eq("asset_id", assetId)
+      .order("valuation_month", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(
+        (valuationPage - 1) * VALUATION_PAGE_SIZE,
+        valuationPage * VALUATION_PAGE_SIZE - 1,
+      ),
+    returnsQuery
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(
+        (returnPage - 1) * RETURN_PAGE_SIZE,
+        returnPage * RETURN_PAGE_SIZE - 1,
+      ),
+    capitalQuery
+      .order("date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(
+        (capitalPage - 1) * CAPITAL_PAGE_SIZE,
+        capitalPage * CAPITAL_PAGE_SIZE - 1,
+      ),
+    supabase
+      .from("investment_returns")
+      .select("id, amount")
+      .eq("user_id", user.id)
+      .eq("asset_id", assetId),
+    supabase
+      .from("investments")
+      .select("id, amount")
+      .eq("user_id", user.id)
+      .eq("asset_id", assetId),
+  ]);
+
+  const totalInvested = (allInvestments || []).reduce(
     (sum, item) => sum + Number(item.amount),
     0,
   );
-  const totalReturned = (returns || []).reduce(
+  const totalReturned = (allReturns || []).reduce(
     (sum, item) => sum + Number(item.amount),
     0,
   );
-  const latestValuation = (valuations || [])[0] as InvestmentValuation | undefined;
-  const currentValue = latestValuation ? Number(latestValuation.current_value) : totalInvested;
+  const currentValue = latestValuation
+    ? Number(latestValuation.current_value)
+    : totalInvested;
   const profitLossAmount = currentValue - totalInvested;
   const profitLossPercent =
     totalInvested > 0 ? (profitLossAmount / totalInvested) * 100 : 0;
@@ -72,15 +219,31 @@ export default async function InvestmentAssetDetailPage({
   return (
     <InvestmentAssetDetailClient
       asset={asset as InvestmentAsset & { category?: Category }}
-      investments={(investments || []) as Expense[]}
+      investments={(paginatedInvestments || []) as Expense[]}
       investmentCategories={(investmentCategories || []) as Category[]}
-      valuations={(valuations || []) as InvestmentValuation[]}
-      returns={(returns || []) as InvestmentReturn[]}
+      valuations={(paginatedValuations || []) as InvestmentValuation[]}
+      latestValuation={latestValuation as InvestmentValuation | undefined}
+      returns={(paginatedReturns || []) as InvestmentReturn[]}
       totalInvested={totalInvested}
       totalReturned={totalReturned}
       currentValue={currentValue}
       profitLossAmount={profitLossAmount}
       profitLossPercent={profitLossPercent}
+      valuationPage={valuationPage}
+      filteredValuationCount={filteredValuationCount || 0}
+      valuationPageSize={VALUATION_PAGE_SIZE}
+      returnSearchQuery={returnSearchQuery}
+      returnCategoryFilter={normalizedReturnCategoryFilter}
+      returnPage={returnPage}
+      filteredReturnCount={filteredReturnCount || 0}
+      returnPageSize={RETURN_PAGE_SIZE}
+      capitalSearchQuery={capitalSearchQuery}
+      capitalCategoryFilter={normalizedCapitalCategoryFilter}
+      capitalPage={capitalPage}
+      filteredCapitalCount={filteredCapitalCount || 0}
+      capitalPageSize={CAPITAL_PAGE_SIZE}
+      totalReturnTransactionCount={(allReturns || []).length}
+      totalCapitalTransactionCount={(allInvestments || []).length}
     />
   );
 }

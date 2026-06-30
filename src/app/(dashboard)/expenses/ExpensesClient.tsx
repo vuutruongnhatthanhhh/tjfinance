@@ -249,17 +249,18 @@ function AddExpenseModal({
   const isEdit = Boolean(expense);
   const { showToast } = useToast();
   const initialIsBusiness = expense?.asset?.is_business || false;
-  const [investmentCategories] = useState(
-    categories.filter((category) => category.type === "investment"),
+  const [allCategories, setAllCategories] = useState(categories);
+  const investmentCategories = allCategories.filter(
+    (category) => category.type === "investment",
   );
-  const [businessCategories, setBusinessCategories] = useState(
-    categories.filter((category) => category.type === "business"),
+  const businessCategories = allCategories.filter(
+    (category) => category.type === "business",
   );
   const defaultTransactionCategories = isInvestment
     ? initialIsBusiness
       ? businessCategories
       : investmentCategories
-    : categories.filter((category) => category.type === transactionType);
+    : allCategories.filter((category) => category.type === transactionType);
   const [amount, setAmount] = useState(
     expense ? formatNumberInput(String(expense.amount)) : "",
   );
@@ -279,11 +280,12 @@ function AddExpenseModal({
   );
   const [isBusiness, setIsBusiness] = useState(initialIsBusiness);
   const [showCreateAssetModal, setShowCreateAssetModal] = useState(false);
-  const [showCreateBusinessCategoryModal, setShowCreateBusinessCategoryModal] =
-    useState(false);
-  const [newBusinessCategoryName, setNewBusinessCategoryName] = useState("");
-  const [newBusinessCategorySaving, setNewBusinessCategorySaving] =
-    useState(false);
+  const [showCreateCategoryModal, setShowCreateCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategorySaving, setNewCategorySaving] = useState(false);
+  const [createCategoryType, setCreateCategoryType] = useState<
+    Category["type"]
+  >(transactionType);
   const [assetDraftError, setAssetDraftError] = useState("");
   const [isAssetAccordionOpen, setIsAssetAccordionOpen] = useState(false);
   const [date, setDate] = useState(
@@ -390,22 +392,23 @@ function AddExpenseModal({
     setIsAssetAccordionOpen(false);
   };
 
-  const openCreateBusinessCategoryModal = () => {
+  const openCreateCategoryModal = (type: Category["type"]) => {
     setError("");
-    setNewBusinessCategoryName("");
-    setShowCreateBusinessCategoryModal(true);
+    setNewCategoryName("");
+    setCreateCategoryType(type);
+    setShowCreateCategoryModal(true);
   };
 
-  const closeCreateBusinessCategoryModal = () => {
+  const closeCreateCategoryModal = () => {
     setError("");
-    setNewBusinessCategoryName("");
-    setNewBusinessCategorySaving(false);
-    setShowCreateBusinessCategoryModal(false);
+    setNewCategoryName("");
+    setNewCategorySaving(false);
+    setShowCreateCategoryModal(false);
   };
 
-  const createBusinessCategory = async (event: React.FormEvent) => {
+  const createCategory = async (event: React.FormEvent) => {
     event.preventDefault();
-    const trimmedName = newBusinessCategoryName.trim();
+    const trimmedName = newCategoryName.trim();
 
     if (!trimmedName) {
       setError("Vui lòng nhập tên danh mục.");
@@ -419,32 +422,38 @@ function AddExpenseModal({
       return;
     }
 
-    setNewBusinessCategorySaving(true);
+    setNewCategorySaving(true);
     const supabase = createClient();
     const { data: createdCategory, error: createCategoryError } = await supabase
       .from("categories")
       .insert({
         user_id: userId,
         name: trimmedName,
-        icon: "briefcase",
+        icon: createCategoryType === "business" ? "briefcase" : "more-horizontal",
         color: "#2D9A4B",
-        type: "business",
+        type: createCategoryType,
       })
       .select("*")
       .single();
 
     if (createCategoryError || !createdCategory) {
       setError("Không thể tạo danh mục mới. Vui lòng thử lại.");
-      setNewBusinessCategorySaving(false);
+      setNewCategorySaving(false);
       return;
     }
 
-    setBusinessCategories((current) => [
-      ...current,
-      createdCategory as Category,
-    ]);
-    setCategoryId(createdCategory.id);
-    closeCreateBusinessCategoryModal();
+    setAllCategories((current) => [...current, createdCategory as Category]);
+
+    if (createCategoryType === "investment") {
+      setAssetCategoryId(createdCategory.id);
+      if (!isBusiness) {
+        setCategoryId(createdCategory.id);
+      }
+    } else {
+      setCategoryId(createdCategory.id);
+    }
+
+    closeCreateCategoryModal();
     showToast("Tạo mới thành công");
   };
 
@@ -944,7 +953,9 @@ function AddExpenseModal({
                     onChange={(event) => {
                       const nextCategoryId = event.target.value;
                       if (nextCategoryId === "__new__") {
-                        openCreateBusinessCategoryModal();
+                        openCreateCategoryModal(
+                          isBusinessInvestment ? "business" : transactionType,
+                        );
                         return;
                       }
                       setCategoryId(nextCategoryId);
@@ -958,13 +969,13 @@ function AddExpenseModal({
                       opacity: isCategoryLocked ? 0.65 : 1,
                     }}
                   >
-                    {isBusinessInvestment && (
+                    {(!isInvestment || isBusinessInvestment) && (
                       <option
-                        disabled
                         value=""
+                        disabled
                         style={{ background: "#0a1a0f" }}
                       >
-                        {businessCategories.length === 0 ? "" : "Chọn danh mục"}
+                        {transactionCategories.length === 0 ? "" : "Chọn danh mục"}
                       </option>
                     )}
                     {transactionCategories.map((category) => (
@@ -976,7 +987,7 @@ function AddExpenseModal({
                         {category.name}
                       </option>
                     ))}
-                    {isBusinessInvestment && (
+                    {(!isInvestment || isBusinessInvestment) && (
                       <option
                         value="__new__"
                         style={{
@@ -1172,6 +1183,10 @@ function AddExpenseModal({
                 <select
                   value={assetCategoryId}
                   onChange={(event) => {
+                    if (event.target.value === "__new__") {
+                      openCreateCategoryModal("investment");
+                      return;
+                    }
                     setAssetCategoryId(event.target.value);
                     if (!isBusiness) {
                       setCategoryId(event.target.value);
@@ -1184,6 +1199,9 @@ function AddExpenseModal({
                     cursor: "pointer",
                   }}
                 >
+                  <option disabled value="" style={{ background: "#0a1a0f" }}>
+                    {investmentCategories.length === 0 ? "" : "Chọn danh mục đầu tư"}
+                  </option>
                   {investmentCategories.map((category) => (
                     <option
                       key={category.id}
@@ -1193,6 +1211,16 @@ function AddExpenseModal({
                       {category.name}
                     </option>
                   ))}
+                  <option
+                    value="__new__"
+                    style={{
+                      background: "rgba(45,154,75,0.2)",
+                      color: "#aaf0be",
+                      fontWeight: 700,
+                    }}
+                  >
+                    + Tạo danh mục mới
+                  </option>
                 </select>
                 <ChevronDown
                   className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
@@ -1267,9 +1295,9 @@ function AddExpenseModal({
         </ModalOverlay>
       )}
 
-      {isInvestment && showCreateBusinessCategoryModal && (
+      {showCreateCategoryModal && (
         <ModalOverlay
-          onClose={closeCreateBusinessCategoryModal}
+          onClose={closeCreateCategoryModal}
           panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
           panelStyle={{
             background: "rgba(8,20,12,0.97)",
@@ -1290,18 +1318,22 @@ function AddExpenseModal({
           >
             <div>
               <h2 className="text-lg font-bold text-white">
-                Tạo danh mục rót vốn
+                Tạo danh mục mới
               </h2>
               <p
                 className="mt-0.5 text-xs"
                 style={{ color: "rgba(191,219,254,0.75)" }}
               >
-                Danh mục này sẽ dùng cho các khoản đầu tư business.
+                {createCategoryType === "business"
+                  ? "Danh mục này sẽ dùng cho các khoản đầu tư business."
+                  : createCategoryType === "investment"
+                    ? "Danh mục này sẽ dùng cho khoản đầu tư."
+                    : "Danh mục này sẽ được thêm ngay trong biểu mẫu hiện tại."}
               </p>
             </div>
             <button
               type="button"
-              onClick={closeCreateBusinessCategoryModal}
+              onClick={closeCreateCategoryModal}
               className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
               style={{
                 color: "rgba(191,219,254,0.8)",
@@ -1313,7 +1345,7 @@ function AddExpenseModal({
           </div>
 
           <form
-            onSubmit={createBusinessCategory}
+            onSubmit={createCategory}
             className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
           >
             {error && (
@@ -1338,12 +1370,18 @@ function AddExpenseModal({
               </label>
               <input
                 type="text"
-                value={newBusinessCategoryName}
+                value={newCategoryName}
                 onChange={(event) => {
-                  setNewBusinessCategoryName(event.target.value);
+                  setNewCategoryName(event.target.value);
                   if (error) setError("");
                 }}
-                placeholder="Ví dụ: Vận hành, Marketing, Mở rộng..."
+                placeholder={
+                  createCategoryType === "business"
+                    ? "Ví dụ: Vận hành, Marketing, Mở rộng..."
+                    : createCategoryType === "investment"
+                      ? "Ví dụ: Cổ phiếu, Vàng, Quỹ..."
+                      : "Ví dụ: Ăn uống, Lương, Đi lại..."
+                }
                 maxLength={CATEGORY_NAME_MAX_LENGTH}
                 style={{
                   ...inputStyle,
@@ -1355,7 +1393,7 @@ function AddExpenseModal({
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
-                onClick={closeCreateBusinessCategoryModal}
+                onClick={closeCreateCategoryModal}
                 className="rounded-xl border px-4 py-3 text-sm font-semibold"
                 style={{
                   borderColor: "rgba(255,255,255,0.1)",
@@ -1367,10 +1405,10 @@ function AddExpenseModal({
               </button>
               <button
                 type="submit"
-                disabled={newBusinessCategorySaving}
+                disabled={newCategorySaving}
                 className="btn-primary inline-flex items-center gap-2"
               >
-                {newBusinessCategorySaving ? (
+                {newCategorySaving ? (
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                 ) : (
                   <Plus className="h-4 w-4" />
@@ -1435,6 +1473,7 @@ function ExpenseMobileCard({
   amountColor,
   amountPrefix,
   categoryFallback,
+  showInvestmentAsset,
   onEdit,
   onToggleSelect,
   onDelete,
@@ -1449,6 +1488,7 @@ function ExpenseMobileCard({
   amountColor: string;
   amountPrefix: string;
   categoryFallback: string;
+  showInvestmentAsset?: boolean;
   onEdit: (expense: Expense & { category?: Category }) => void;
   onToggleSelect: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
@@ -1469,20 +1509,14 @@ function ExpenseMobileCard({
           onClick={() => onToggleSelect(expense)}
           className={cn(
             "mt-0.5 h-8 w-8 shrink-0 rounded-xl border flex items-center justify-center transition-colors",
-            selected ? "bg-primary/20" : "bg-white/5",
+            selected ? "border-transparent bg-[#2D9A4B] text-white" : "bg-white/5 text-transparent",
           )}
           style={{
-            borderColor: selected ? "#2D9A4B" : "rgba(45,154,75,0.15)",
+            borderColor: selected ? "#2D9A4B" : "rgba(226,255,232,0.35)",
           }}
           aria-label={selected ? "Bỏ chọn" : "Chọn"}
         >
-          <div
-            className="h-3.5 w-3.5 rounded-sm border"
-            style={{
-              borderColor: selected ? "#2D9A4B" : "rgba(226,255,232,0.4)",
-              background: selected ? "#2D9A4B" : "transparent",
-            }}
-          />
+          {selected ? <span className="text-[11px] leading-none">✓</span> : null}
         </button>
 
         <div className="min-w-0 flex-1">
@@ -1504,6 +1538,15 @@ function ExpenseMobileCard({
               >
                 {expense.description}
               </p>
+
+              {showInvestmentAsset && (
+                <p
+                  className="mt-1 truncate text-xs font-medium"
+                  style={{ color: "rgba(226,255,232,0.58)" }}
+                >
+                  {expense.asset?.name || "Không có khoản đầu tư"}
+                </p>
+              )}
 
               <div className="mt-1 flex items-center justify-between gap-3">
                 <span
@@ -1618,20 +1661,14 @@ function ExpenseTableRow({
         onClick={() => onToggleSelect(expense)}
         className={cn(
           "h-8 w-8 rounded-xl border flex items-center justify-center transition-colors",
-          selected ? "bg-primary/20" : "bg-white/5",
+          selected ? "border-transparent bg-[#2D9A4B] text-white" : "bg-white/5 text-transparent",
         )}
         style={{
-          borderColor: selected ? "#2D9A4B" : "rgba(45,154,75,0.15)",
+          borderColor: selected ? "#2D9A4B" : "rgba(226,255,232,0.35)",
         }}
         aria-label={selected ? "Bỏ chọn" : "Chọn"}
       >
-        <div
-          className="h-3.5 w-3.5 rounded-sm border"
-          style={{
-            borderColor: selected ? "#2D9A4B" : "rgba(226,255,232,0.4)",
-            background: selected ? "#2D9A4B" : "transparent",
-          }}
-        />
+        {selected ? <span className="text-[11px] leading-none">✓</span> : null}
       </button>
 
       <div className="flex min-w-0 items-start gap-4">
@@ -1897,6 +1934,7 @@ export default function ExpensesClient({
     currentExpenses.length > 0 &&
     selectedExpenses.length === currentExpenses.length;
   const hasSelectedExpenses = selectedExpenses.length > 0;
+  const showMobileBulkActionBar = hasSelectedExpenses && !showModal;
 
   const clearFilters = () => {
     setSearchInput("");
@@ -1999,7 +2037,7 @@ export default function ExpensesClient({
       <div
         ref={listScrollRef}
         data-dashboard-scroll-root
-        className="flex-1 overflow-y-auto px-4 py-4 custom-scrollbar md:overflow-hidden sm:px-6"
+        className="flex-1 overflow-y-auto px-4 py-4 pb-28 custom-scrollbar md:overflow-hidden sm:px-6 md:pb-4"
       >
         <div className="flex min-h-full flex-col md:h-full">
           <div className="mb-3 flex items-center gap-3 lg:hidden">
@@ -2193,7 +2231,7 @@ export default function ExpensesClient({
                   <button
                     type="button"
                     onClick={() => handleBulkDelete(selectedExpenses)}
-                    className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors"
+                    className="hidden items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium transition-colors md:inline-flex"
                     style={{
                       background: "rgba(239,68,68,0.12)",
                       borderColor: "rgba(239,68,68,0.24)",
@@ -2283,6 +2321,7 @@ export default function ExpensesClient({
                     amountColor={config.amountColor}
                     amountPrefix={config.amountPrefix}
                     categoryFallback={config.categoryFallback}
+                    showInvestmentAsset={transactionType === "investment"}
                     onEdit={handleEdit}
                     onToggleSelect={toggleExpenseSelection}
                     onDelete={handleDelete}
@@ -2380,24 +2419,19 @@ export default function ExpensesClient({
                       style={{
                         borderColor: allSelected
                           ? "#2D9A4B"
-                          : "rgba(45,154,75,0.15)",
+                          : "rgba(226,255,232,0.35)",
                         background: allSelected
-                          ? "rgba(45,154,75,0.18)"
+                          ? "#2D9A4B"
                           : "rgba(255,255,255,0.04)",
+                        color: allSelected ? "#ffffff" : "transparent",
                       }}
                       aria-label={
                         allSelected ? "Bỏ chọn tất cả" : "Chọn tất cả"
                       }
                     >
-                      <div
-                        className="h-3.5 w-3.5 rounded-sm border"
-                        style={{
-                          borderColor: allSelected
-                            ? "#2D9A4B"
-                            : "rgba(226,255,232,0.4)",
-                          background: allSelected ? "#2D9A4B" : "transparent",
-                        }}
-                      />
+                      {allSelected ? (
+                        <span className="text-[11px] leading-none">✓</span>
+                      ) : null}
                     </button>
                     <div>{config.tableColumnLabel}</div>
                     <div>Danh mục</div>
@@ -2522,12 +2556,36 @@ export default function ExpensesClient({
         </div>
       </div>
 
+      {showMobileBulkActionBar && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] md:hidden">
+          <div
+            className="pointer-events-auto rounded-3xl border p-3 shadow-2xl backdrop-blur"
+            style={{
+              borderColor: "rgba(239,68,68,0.22)",
+              background: "rgba(8,20,12,0.94)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.45)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => handleBulkDelete(selectedExpenses)}
+              className="w-full rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400"
+            >
+              Xóa đã chọn ({selectedExpenses.length})
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={() => {
           setEditExpense(undefined);
           setShowModal(true);
         }}
-        className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xl lg:hidden"
+        className={cn(
+          "fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-2xl shadow-2xl lg:hidden",
+          showMobileBulkActionBar && "hidden",
+        )}
         style={{
           background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
           boxShadow: "0 8px 25px rgba(45,154,75,0.5)",
@@ -2536,27 +2594,6 @@ export default function ExpensesClient({
       >
         <Plus className="h-6 w-6 text-white" />
       </button>
-
-      {hasSelectedExpenses && (
-        <button
-          type="button"
-          onClick={() => handleBulkDelete(selectedExpenses)}
-          className="fixed bottom-6 left-6 z-30 inline-flex items-center gap-2 rounded-2xl border px-4 py-3 shadow-2xl lg:hidden"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(239,68,68,0.95), rgba(127,29,29,0.95))",
-            borderColor: "rgba(239,68,68,0.45)",
-            color: "#fff1f2",
-            boxShadow: "0 8px 25px rgba(239,68,68,0.28)",
-          }}
-          aria-label={`Xóa ${selectedExpenses.length} mục đã chọn`}
-        >
-          <Trash2 className="h-4 w-4" />
-          <span className="text-xs font-semibold">
-            Xóa ({selectedExpenses.length})
-          </span>
-        </button>
-      )}
 
       {showModal && (
         <AddExpenseModal

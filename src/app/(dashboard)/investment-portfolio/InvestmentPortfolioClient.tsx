@@ -37,6 +37,7 @@ export default function InvestmentPortfolioClient({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const overallProfitLoss = overallCurrent - overallInvested;
   const overallProfitLossColor =
     overallProfitLoss > 0
@@ -44,10 +45,27 @@ export default function InvestmentPortfolioClient({
       : overallProfitLoss < 0
         ? "#f87171"
         : undefined;
+  const selectedSummaries = summaries.filter((summary) =>
+    selectedAssetIds.includes(summary.asset.id),
+  );
 
   useEffect(() => {
     router.prefetch("/investments");
   }, [router]);
+
+  useEffect(() => {
+    setSelectedAssetIds((current) =>
+      current.filter((id) => summaries.some((summary) => summary.asset.id === id)),
+    );
+  }, [summaries]);
+
+  const toggleSelection = (assetId: string) => {
+    setSelectedAssetIds((current) =>
+      current.includes(assetId)
+        ? current.filter((id) => id !== assetId)
+        : [...current, assetId],
+    );
+  };
 
   const deleteAsset = async (summary: InvestmentAssetSummary) => {
     if (!summary.canDelete) {
@@ -55,9 +73,7 @@ export default function InvestmentPortfolioClient({
       return;
     }
 
-    if (
-      !window.confirm(`Bạn có chắc muốn xóa "${summary.asset.name}" không?`)
-    ) {
+    if (!window.confirm(`Bạn có chắc muốn xóa "${summary.asset.name}" không?`)) {
       return;
     }
 
@@ -91,6 +107,57 @@ export default function InvestmentPortfolioClient({
     startTransition(() => router.refresh());
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedSummaries.length === 0) return;
+
+    if (selectedSummaries.some((summary) => !summary.canDelete)) {
+      window.alert(
+        "Có khoản đầu tư vẫn còn giao dịch nên chưa thể xóa hàng loạt.",
+      );
+      return;
+    }
+
+    const names =
+      selectedSummaries.length === 1
+        ? `"${selectedSummaries[0].asset.name}"`
+        : `${selectedSummaries.length} khoản đầu tư đã chọn`;
+
+    if (!window.confirm(`Bạn có chắc muốn xóa ${names} không?`)) {
+      return;
+    }
+
+    const assetIds = selectedSummaries.map((summary) => summary.asset.id);
+    setDeletingAssetId("__bulk__");
+    const supabase = createClient();
+
+    const { error: valuationDeleteError } = await supabase
+      .from("investment_valuations")
+      .delete()
+      .in("asset_id", assetIds);
+
+    if (valuationDeleteError) {
+      showToast("Không thể xóa khoản đầu tư. Vui lòng thử lại.");
+      setDeletingAssetId(null);
+      return;
+    }
+
+    const { error: assetDeleteError } = await supabase
+      .from("investment_assets")
+      .delete()
+      .in("id", assetIds);
+
+    if (assetDeleteError) {
+      showToast("Không thể xóa khoản đầu tư. Vui lòng thử lại.");
+      setDeletingAssetId(null);
+      return;
+    }
+
+    setSelectedAssetIds([]);
+    showToast("Xóa khoản đầu tư thành công");
+    setDeletingAssetId(null);
+    startTransition(() => router.refresh());
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <Header
@@ -117,6 +184,33 @@ export default function InvestmentPortfolioClient({
             Quay lại giao dịch đầu tư
           </Link>
         </div>
+
+        {selectedSummaries.length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setSelectedAssetIds([])}
+              className="rounded-xl border px-4 py-2 text-sm font-semibold"
+              style={{
+                borderColor: "rgba(45,154,75,0.16)",
+                background: "rgba(255,255,255,0.04)",
+                color: "#e2ffe8",
+              }}
+            >
+              Bỏ chọn
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={isPending || deletingAssetId === "__bulk__"}
+              className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 disabled:opacity-60"
+            >
+              {deletingAssetId === "__bulk__"
+                ? "Đang xóa..."
+                : `Xóa đã chọn (${selectedSummaries.length})`}
+            </button>
+          </div>
+        )}
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
@@ -160,6 +254,7 @@ export default function InvestmentPortfolioClient({
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
             {summaries.map((summary) => {
               const isPositive = summary.profitLossAmount >= 0;
+              const selected = selectedAssetIds.includes(summary.asset.id);
 
               return (
                 <div
@@ -171,6 +266,37 @@ export default function InvestmentPortfolioClient({
                     boxShadow: "0 12px 32px rgba(0,0,0,0.18)",
                   }}
                 >
+                  <div className="mb-4 flex">
+                    <button
+                      type="button"
+                      onClick={() => toggleSelection(summary.asset.id)}
+                      className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition ${
+                        selected
+                          ? "border-transparent bg-[#2D9A4B] text-white"
+                          : "bg-white/5 text-transparent"
+                      }`}
+                      style={{
+                        borderColor: selected
+                          ? "#2D9A4B"
+                          : "rgba(45,154,75,0.18)",
+                      }}
+                      aria-label={`Chọn ${summary.asset.name}`}
+                    >
+                      <div
+                        className="absolute h-4 w-4 rounded border"
+                        style={{
+                          borderColor: selected
+                            ? "rgba(255,255,255,0.72)"
+                            : "rgba(226,255,232,0.45)",
+                          background: "transparent",
+                        }}
+                      />
+                      {selected ? (
+                        <span className="text-sm leading-none">✓</span>
+                      ) : null}
+                    </button>
+                  </div>
+
                   <Link
                     href={`/investment-portfolio/${summary.asset.id}`}
                     className="block"
@@ -284,9 +410,7 @@ export default function InvestmentPortfolioClient({
                         </p>
                         <p className="mt-1 text-sm font-medium text-white">
                           {summary.latestValuation
-                            ? formatDate(
-                                summary.latestValuation.valuation_month,
-                              )
+                            ? formatDate(summary.latestValuation.valuation_month)
                             : "Chưa cập nhật"}
                         </p>
                       </div>
@@ -297,9 +421,7 @@ export default function InvestmentPortfolioClient({
                     <button
                       type="button"
                       onClick={() => deleteAsset(summary)}
-                      disabled={
-                        isPending || deletingAssetId === summary.asset.id
-                      }
+                      disabled={isPending || deletingAssetId === summary.asset.id}
                       className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium transition-colors"
                       style={{
                         borderColor: "rgba(239,68,68,0.25)",

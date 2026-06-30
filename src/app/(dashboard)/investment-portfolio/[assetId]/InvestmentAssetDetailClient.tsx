@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   useEffect,
@@ -8,7 +8,7 @@ import {
   useTransition,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   CalendarRange,
@@ -46,16 +46,29 @@ interface InvestmentAssetDetailClientProps {
   investments: Expense[];
   investmentCategories: Category[];
   valuations: InvestmentValuation[];
+  latestValuation?: InvestmentValuation;
   returns: InvestmentReturn[];
   totalInvested: number;
   totalReturned: number;
   currentValue: number;
   profitLossAmount: number;
   profitLossPercent: number;
+  valuationPage: number;
+  filteredValuationCount: number;
+  valuationPageSize: number;
+  returnSearchQuery: string;
+  returnCategoryFilter: string;
+  returnPage: number;
+  filteredReturnCount: number;
+  returnPageSize: number;
+  capitalSearchQuery: string;
+  capitalCategoryFilter: string;
+  capitalPage: number;
+  filteredCapitalCount: number;
+  capitalPageSize: number;
+  totalReturnTransactionCount: number;
+  totalCapitalTransactionCount: number;
 }
-
-const CAPITAL_PAGE_SIZE = 10;
-const RETURN_PAGE_SIZE = 10;
 
 function normalizeMonthDate(value: string) {
   if (!value) return value;
@@ -69,16 +82,33 @@ export default function InvestmentAssetDetailClient({
   investments,
   investmentCategories,
   valuations,
+  latestValuation,
   returns,
   totalInvested,
   totalReturned,
   currentValue,
   profitLossAmount,
   profitLossPercent,
+  valuationPage,
+  filteredValuationCount,
+  valuationPageSize,
+  returnSearchQuery,
+  returnCategoryFilter,
+  returnPage,
+  filteredReturnCount,
+  returnPageSize,
+  capitalSearchQuery,
+  capitalCategoryFilter,
+  capitalPage,
+  filteredCapitalCount,
+  capitalPageSize,
+  totalReturnTransactionCount,
+  totalCapitalTransactionCount,
 }: InvestmentAssetDetailClientProps) {
   const onMenuToggle = useSidebarToggle();
   const { showToast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const initialCapitalCategoryOptions = investmentCategories.filter(
     (category) =>
       category.type === (asset.is_business ? "business" : "investment"),
@@ -106,14 +136,20 @@ export default function InvestmentAssetDetailClient({
     : assetCategoryId || capitalCategories[0]?.id || "";
   const [isPending, startTransition] = useTransition();
   const [valuationDate, setValuationDate] = useState(
-    valuations[0]?.valuation_month || new Date().toISOString().split("T")[0],
+    latestValuation?.valuation_month || new Date().toISOString().split("T")[0],
   );
   const [valuationAmount, setValuationAmount] = useState(
-    valuations[0]?.current_value
-      ? formatNumberInput(String(valuations[0].current_value))
-      : "",
+    latestValuation?.current_value
+      ? formatNumberInput(String(latestValuation.current_value))
+      : "0",
   );
-  const [valuationNote, setValuationNote] = useState(valuations[0]?.note || "");
+  const [valuationNote, setValuationNote] = useState(
+    latestValuation?.note || "",
+  );
+  const [editingValuationId, setEditingValuationId] = useState<string | null>(
+    null,
+  );
+  const [valuationModalOpen, setValuationModalOpen] = useState(false);
   const [returnError, setReturnError] = useState("");
   const [returnLoading, setReturnLoading] = useState(false);
   const [editingReturnId, setEditingReturnId] = useState<string | null>(null);
@@ -145,14 +181,21 @@ export default function InvestmentAssetDetailClient({
   const [newCapitalCategoryName, setNewCapitalCategoryName] = useState("");
   const [newCapitalCategorySaving, setNewCapitalCategorySaving] =
     useState(false);
-  const [returnSearchDraft, setReturnSearchDraft] = useState("");
-  const [returnSearchQuery, setReturnSearchQuery] = useState("");
-  const [returnCategoryFilter, setReturnCategoryFilter] = useState("all");
-  const [returnPage, setReturnPage] = useState(1);
-  const [capitalSearchDraft, setCapitalSearchDraft] = useState("");
-  const [capitalSearchQuery, setCapitalSearchQuery] = useState("");
-  const [capitalCategoryFilter, setCapitalCategoryFilter] = useState("all");
-  const [capitalPage, setCapitalPage] = useState(1);
+  const [returnSearchDraft, setReturnSearchDraft] = useState(returnSearchQuery);
+  const [selectedValuationIds, setSelectedValuationIds] = useState<string[]>(
+    [],
+  );
+  const [selectedReturnIds, setSelectedReturnIds] = useState<string[]>([]);
+  const [deletingValuationId, setDeletingValuationId] = useState<string | null>(
+    null,
+  );
+  const [deletingReturnId, setDeletingReturnId] = useState<string | null>(null);
+  const [capitalSearchDraft, setCapitalSearchDraft] =
+    useState(capitalSearchQuery);
+  const [selectedCapitalIds, setSelectedCapitalIds] = useState<string[]>([]);
+  const [deletingCapitalId, setDeletingCapitalId] = useState<string | null>(
+    null,
+  );
   const [assetName, setAssetName] = useState(asset.name);
   const [assetDescription, setAssetDescription] = useState(
     asset.description || "",
@@ -164,67 +207,78 @@ export default function InvestmentAssetDetailClient({
   const [returnCategoryId, setReturnCategoryId] = useState(
     defaultReturnCategoryId,
   );
-  const normalizedReturnSearch = returnSearchQuery.trim().toLowerCase();
-  const normalizedReturnCategoryFilter =
-    returnCategoryFilter !== "all" ? returnCategoryFilter : "";
-  const filteredReturns = returns.filter((item) => {
-    const matchesSearch =
-      !normalizedReturnSearch ||
-      item.description.toLowerCase().includes(normalizedReturnSearch) ||
-      (item.note || "").toLowerCase().includes(normalizedReturnSearch);
-
-    const matchesCategory = normalizedReturnCategoryFilter
-      ? item.category_id === normalizedReturnCategoryFilter
-      : true;
-
-    return matchesSearch && matchesCategory;
-  });
+  const totalValuationPages = Math.max(
+    1,
+    Math.ceil(filteredValuationCount / valuationPageSize),
+  );
+  const safeValuationPage = Math.min(valuationPage, totalValuationPages);
+  const valuationSectionTitleRef = useRef<HTMLParagraphElement | null>(null);
+  const shouldScrollValuationPaginationRef = useRef(false);
+  const visibleValuations = valuations;
+  const valuationDisplayCount =
+    safeValuationPage === 1
+      ? visibleValuations.length
+      : (safeValuationPage - 1) * valuationPageSize + 1;
   const totalReturnPages = Math.max(
     1,
-    Math.ceil(filteredReturns.length / RETURN_PAGE_SIZE),
+    Math.ceil(filteredReturnCount / returnPageSize),
   );
   const safeReturnPage = Math.min(returnPage, totalReturnPages);
   const returnSectionTitleRef = useRef<HTMLParagraphElement | null>(null);
   const shouldScrollReturnPaginationRef = useRef(false);
-  const visibleReturns = filteredReturns.slice(
-    (safeReturnPage - 1) * RETURN_PAGE_SIZE,
-    safeReturnPage * RETURN_PAGE_SIZE,
-  );
+  const visibleReturns = returns;
   const returnDisplayCount =
     safeReturnPage === 1
       ? visibleReturns.length
-      : (safeReturnPage - 1) * RETURN_PAGE_SIZE + 1;
-  const normalizedCapitalSearch = capitalSearchQuery.trim().toLowerCase();
-  const normalizedCapitalCategoryFilter =
-    asset.is_business && capitalCategoryFilter !== "all"
-      ? capitalCategoryFilter
-      : "";
-  const filteredCapitalInvestments = investments.filter((item) => {
-    const matchesSearch =
-      !normalizedCapitalSearch ||
-      item.description.toLowerCase().includes(normalizedCapitalSearch) ||
-      (item.note || "").toLowerCase().includes(normalizedCapitalSearch);
-
-    const matchesCategory = normalizedCapitalCategoryFilter
-      ? item.category_id === normalizedCapitalCategoryFilter
-      : true;
-    return matchesSearch && matchesCategory;
-  });
+      : (safeReturnPage - 1) * returnPageSize + 1;
   const totalCapitalPages = Math.max(
     1,
-    Math.ceil(filteredCapitalInvestments.length / CAPITAL_PAGE_SIZE),
+    Math.ceil(filteredCapitalCount / capitalPageSize),
   );
   const safeCapitalPage = Math.min(capitalPage, totalCapitalPages);
   const capitalSectionTitleRef = useRef<HTMLParagraphElement | null>(null);
   const shouldScrollCapitalPaginationRef = useRef(false);
-  const visibleCapitalInvestments = filteredCapitalInvestments.slice(
-    (safeCapitalPage - 1) * CAPITAL_PAGE_SIZE,
-    safeCapitalPage * CAPITAL_PAGE_SIZE,
-  );
+  const visibleCapitalInvestments = investments;
   const capitalDisplayCount =
     safeCapitalPage === 1
       ? visibleCapitalInvestments.length
-      : (safeCapitalPage - 1) * CAPITAL_PAGE_SIZE + 1;
+      : (safeCapitalPage - 1) * capitalPageSize + 1;
+  const selectedValuations = visibleValuations.filter((item) =>
+    selectedValuationIds.includes(item.id),
+  );
+  const selectedReturns = returns.filter((item) =>
+    selectedReturnIds.includes(item.id),
+  );
+  const selectedCapitals = investments.filter((item) =>
+    selectedCapitalIds.includes(item.id),
+  );
+  const selectedVisibleReturns = visibleReturns.filter((item) =>
+    selectedReturnIds.includes(item.id),
+  );
+  const selectedVisibleCapitals = visibleCapitalInvestments.filter((item) =>
+    selectedCapitalIds.includes(item.id),
+  );
+  const allVisibleValuationsSelected =
+    visibleValuations.length > 0 &&
+    selectedValuations.length === visibleValuations.length;
+  const allVisibleReturnsSelected =
+    visibleReturns.length > 0 &&
+    selectedVisibleReturns.length === visibleReturns.length;
+  const allVisibleCapitalsSelected =
+    visibleCapitalInvestments.length > 0 &&
+    selectedVisibleCapitals.length === visibleCapitalInvestments.length;
+  const showMobileBulkActionBar =
+    !valuationModalOpen &&
+    !returnModalOpen &&
+    !capitalModalOpen &&
+    !showNewCapitalCategoryInput &&
+    (selectedValuations.length > 0 ||
+      selectedReturns.length > 0 ||
+      selectedCapitals.length > 0);
+  const totalSelectedMobileItems =
+    selectedValuations.length +
+    selectedReturns.length +
+    selectedCapitals.length;
 
   useLayoutEffect(() => {
     const activeRoot = document.querySelector<HTMLElement>(
@@ -238,6 +292,17 @@ export default function InvestmentAssetDetailClient({
 
     window.scrollTo({ top: 0, behavior: "auto" });
   }, []);
+
+  useEffect(() => {
+    if (!shouldScrollValuationPaginationRef.current) {
+      return;
+    }
+    shouldScrollValuationPaginationRef.current = false;
+    valuationSectionTitleRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }, [valuationPage]);
 
   useEffect(() => {
     if (!shouldScrollReturnPaginationRef.current) {
@@ -261,13 +326,88 @@ export default function InvestmentAssetDetailClient({
     });
   }, [capitalPage]);
 
+  useEffect(() => {
+    setSelectedValuationIds((current) =>
+      current.filter((id) => valuations.some((item) => item.id === id)),
+    );
+  }, [valuations]);
+
+  useEffect(() => {
+    setSelectedReturnIds((current) =>
+      current.filter((id) => returns.some((item) => item.id === id)),
+    );
+  }, [returns]);
+
+  useEffect(() => {
+    setSelectedCapitalIds((current) =>
+      current.filter((id) => investments.some((item) => item.id === id)),
+    );
+  }, [investments]);
+
+  useEffect(() => {
+    setReturnSearchDraft(returnSearchQuery);
+  }, [returnSearchQuery]);
+
+  useEffect(() => {
+    setCapitalSearchDraft(capitalSearchQuery);
+  }, [capitalSearchQuery]);
+
   const profitLossColor =
     profitLossAmount > 0
       ? "#4ade80"
       : profitLossAmount < 0
         ? "#f87171"
         : undefined;
-  const canDeleteAsset = investments.length === 0 && returns.length === 0;
+  const canDeleteAsset =
+    totalCapitalTransactionCount === 0 && totalReturnTransactionCount === 0;
+
+  const navigateWithFilters = (
+    updates: Record<string, string | number | undefined>,
+  ) => {
+    const params = new URLSearchParams();
+    const nextValuationPage = Number(updates.valuation_page ?? valuationPage);
+    const nextReturnSearch = String(
+      updates.return_q ?? returnSearchQuery,
+    ).trim();
+    const nextReturnCategory = String(
+      updates.return_category ?? returnCategoryFilter,
+    ).trim();
+    const nextReturnPage = Number(updates.return_page ?? returnPage);
+    const nextCapitalSearch = String(
+      updates.capital_q ?? capitalSearchQuery,
+    ).trim();
+    const nextCapitalCategory = String(
+      updates.capital_category ?? capitalCategoryFilter,
+    ).trim();
+    const nextCapitalPage = Number(updates.capital_page ?? capitalPage);
+
+    if (nextValuationPage > 1) {
+      params.set("valuation_page", String(nextValuationPage));
+    }
+
+    if (nextReturnSearch) params.set("return_q", nextReturnSearch);
+    if (nextReturnCategory && nextReturnCategory !== "all") {
+      params.set("return_category", nextReturnCategory);
+    }
+    if (nextReturnPage > 1) {
+      params.set("return_page", String(nextReturnPage));
+    }
+
+    if (nextCapitalSearch) params.set("capital_q", nextCapitalSearch);
+    if (nextCapitalCategory && nextCapitalCategory !== "all") {
+      params.set("capital_category", nextCapitalCategory);
+    }
+    if (nextCapitalPage > 1) {
+      params.set("capital_page", String(nextCapitalPage));
+    }
+
+    const query = params.toString();
+    startTransition(() => {
+      router.replace(query ? `${pathname}?${query}` : pathname, {
+        scroll: false,
+      });
+    });
+  };
 
   const saveAssetInfo = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -300,7 +440,13 @@ export default function InvestmentAssetDetailClient({
   const saveValuation = async (event: React.FormEvent) => {
     event.preventDefault();
     setReturnError("");
-    const amountNumber = parseFormattedNumber(valuationAmount);
+    const trimmedAmount = valuationAmount.trim();
+    const amountNumber = parseFormattedNumber(trimmedAmount);
+
+    if (!trimmedAmount || amountNumber <= 0) {
+      setError("Vui lòng nhập giá trị hiện tại.");
+      return;
+    }
 
     if (amountNumber < 0) {
       setError("Giá trị hiện tại không hợp lệ.");
@@ -327,6 +473,59 @@ export default function InvestmentAssetDetailClient({
     }
 
     showToast("Tạo mới thành công");
+    setEditingValuationId(null);
+    setValuationDate(new Date().toISOString().split("T")[0]);
+    setValuationAmount("0");
+    setValuationNote("");
+    setValuationModalOpen(false);
+    startTransition(() => router.refresh());
+  };
+
+  const handleSaveValuation = async (event: React.FormEvent) => {
+    if (!editingValuationId) {
+      await saveValuation(event);
+      return;
+    }
+
+    event.preventDefault();
+    const trimmedAmount = valuationAmount.trim();
+    const amountNumber = parseFormattedNumber(trimmedAmount);
+
+    if (!trimmedAmount || amountNumber <= 0) {
+      setError("Vui lòng nhập giá trị hiện tại.");
+      return;
+    }
+
+    if (amountNumber < 0) {
+      setError("Giá trị hiện tại không hợp lệ.");
+      return;
+    }
+
+    const supabase = createClient();
+    const payload = {
+      asset_id: asset.id,
+      user_id: asset.user_id,
+      valuation_month: normalizeMonthDate(valuationDate),
+      current_value: amountNumber,
+      note: valuationNote || null,
+    };
+
+    const { error: dbError } = await supabase
+      .from("investment_valuations")
+      .update(payload)
+      .eq("id", editingValuationId);
+
+    if (dbError) {
+      setError("Không thể lưu giá trị tháng. Vui lòng thử lại.");
+      return;
+    }
+
+    setEditingValuationId(null);
+    setValuationDate(new Date().toISOString().split("T")[0]);
+    setValuationAmount("0");
+    setValuationNote("");
+    setValuationModalOpen(false);
+    showToast("Chỉnh sửa thành công");
     startTransition(() => router.refresh());
   };
 
@@ -471,7 +670,7 @@ export default function InvestmentAssetDetailClient({
 
     const trimmedName = newCapitalCategoryName.trim();
     if (!trimmedName) {
-      setCapitalError("Vui lĂ²ng nháº­p tĂªn danh má»¥c.");
+      setCapitalError("Vui lòng nhập tên danh mục.");
       return;
     }
 
@@ -495,7 +694,7 @@ export default function InvestmentAssetDetailClient({
       .single();
 
     if (error || !createdCategory) {
-      setCapitalError("KhĂ´ng thá»ƒ táº¡o danh má»¥c má»›i.");
+      setCapitalError("Không thể tạo danh mục mới.");
       setNewCapitalCategorySaving(false);
       return;
     }
@@ -544,6 +743,33 @@ export default function InvestmentAssetDetailClient({
     setCapitalModalOpen(true);
   };
 
+  const openCreateValuationModal = () => {
+    setEditingValuationId(null);
+    setValuationDate(new Date().toISOString().split("T")[0]);
+    setValuationAmount("0");
+    setValuationNote("");
+    setError("");
+    setValuationModalOpen(true);
+  };
+
+  const startEditValuation = (item: InvestmentValuation) => {
+    setEditingValuationId(item.id);
+    setValuationDate(item.valuation_month);
+    setValuationAmount(formatNumberInput(String(item.current_value)));
+    setValuationNote(item.note || "");
+    setError("");
+    setValuationModalOpen(true);
+  };
+
+  const cancelEditValuation = () => {
+    setEditingValuationId(null);
+    setValuationDate(new Date().toISOString().split("T")[0]);
+    setValuationAmount("0");
+    setValuationNote("");
+    setError("");
+    setValuationModalOpen(false);
+  };
+
   const openCreateReturnModal = () => {
     setEditingReturnId(null);
     setReturnAmount("");
@@ -556,57 +782,84 @@ export default function InvestmentAssetDetailClient({
   };
 
   const applyReturnSearch = () => {
-    setReturnSearchQuery(returnSearchDraft.trim());
-    setReturnPage(1);
+    navigateWithFilters({
+      return_q: returnSearchDraft.trim(),
+      return_page: 1,
+    });
   };
 
   const handleReturnSearchDraftChange = (value: string) => {
     setReturnSearchDraft(value);
 
     if (!value.trim()) {
-      setReturnSearchQuery("");
-      setReturnPage(1);
+      navigateWithFilters({
+        return_q: "",
+        return_page: 1,
+      });
     }
   };
 
   const clearReturnSearch = () => {
     setReturnSearchDraft("");
-    setReturnSearchQuery("");
-    setReturnPage(1);
+    navigateWithFilters({
+      return_q: "",
+      return_page: 1,
+    });
   };
 
   const handleReturnCategoryFilterChange = (
     event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
-    setReturnCategoryFilter(event.target.value);
-    setReturnPage(1);
+    navigateWithFilters({
+      return_category: event.target.value,
+      return_page: 1,
+    });
   };
 
   const applyCapitalSearch = () => {
-    setCapitalSearchQuery(capitalSearchDraft.trim());
-    setCapitalPage(1);
+    navigateWithFilters({
+      capital_q: capitalSearchDraft.trim(),
+      capital_page: 1,
+    });
   };
 
   const handleCapitalSearchDraftChange = (value: string) => {
     setCapitalSearchDraft(value);
 
     if (!value.trim()) {
-      setCapitalSearchQuery("");
-      setCapitalPage(1);
+      navigateWithFilters({
+        capital_q: "",
+        capital_page: 1,
+      });
     }
   };
 
   const clearCapitalSearch = () => {
     setCapitalSearchDraft("");
-    setCapitalSearchQuery("");
-    setCapitalPage(1);
+    navigateWithFilters({
+      capital_q: "",
+      capital_page: 1,
+    });
   };
 
   const handleCapitalCategoryFilterChange = (
     event: React.ChangeEvent<HTMLSelectElement>,
   ) => {
-    setCapitalCategoryFilter(event.target.value);
-    setCapitalPage(1);
+    navigateWithFilters({
+      capital_category: event.target.value,
+      capital_page: 1,
+    });
+  };
+
+  const toggleSelection = (
+    id: string,
+    setter: React.Dispatch<React.SetStateAction<string[]>>,
+  ) => {
+    setter((current) =>
+      current.includes(id)
+        ? current.filter((itemId) => itemId !== id)
+        : [...current, id],
+    );
   };
 
   const startEditReturn = (item: InvestmentReturn) => {
@@ -662,12 +915,14 @@ export default function InvestmentAssetDetailClient({
       return;
     }
 
+    setDeletingCapitalId(item.id);
     const supabase = createClient();
     const { error } = await supabase
       .from("investments")
       .delete()
       .eq("id", item.id);
     if (error) {
+      setDeletingCapitalId(null);
       setCapitalError("Không thể xóa lần rót vốn. Vui lòng thử lại.");
       return;
     }
@@ -678,18 +933,21 @@ export default function InvestmentAssetDetailClient({
 
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
+    setDeletingCapitalId(null);
   };
 
   const deleteReturn = async (item: InvestmentReturn) => {
     if (!window.confirm(`Bạn có chắc muốn xóa "${item.description}" không?`)) {
       return;
     }
+    setDeletingReturnId(item.id);
     const supabase = createClient();
     const { error } = await supabase
       .from("investment_returns")
       .delete()
       .eq("id", item.id);
     if (error) {
+      setDeletingReturnId(null);
       setReturnError("Không thể xóa giao dịch thu tiền. Vui lòng thử lại.");
       return;
     }
@@ -698,20 +956,162 @@ export default function InvestmentAssetDetailClient({
     }
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
+    setDeletingReturnId(null);
   };
 
   const deleteValuation = async (valuationId: string, label: string) => {
     if (!window.confirm(`Bạn có chắc muốn xóa "${label}" không?`)) {
       return;
     }
+    setDeletingValuationId(valuationId);
     const supabase = createClient();
     const { error } = await supabase
       .from("investment_valuations")
       .delete()
       .eq("id", valuationId);
     if (error) {
+      setDeletingValuationId(null);
       return;
     }
+    showToast("Xóa thành công");
+    startTransition(() => router.refresh());
+    setDeletingValuationId(null);
+  };
+
+  const handleBulkDeleteValuations = async (items: InvestmentValuation[]) => {
+    if (items.length === 0) return;
+    const names =
+      items.length === 1
+        ? `"${formatDate(items[0].valuation_month)}"`
+        : `${items.length} mục đã chọn`;
+    if (!window.confirm(`Bạn có chắc muốn xóa ${names} không?`)) return;
+
+    const supabase = createClient();
+    const { error: dbError } = await supabase
+      .from("investment_valuations")
+      .delete()
+      .in(
+        "id",
+        items.map((item) => item.id),
+      );
+
+    if (dbError) {
+      setError("Không thể xóa giá trị tháng. Vui lòng thử lại.");
+      return;
+    }
+
+    setSelectedValuationIds([]);
+    showToast("Xóa thành công");
+    startTransition(() => router.refresh());
+  };
+
+  const handleBulkDeleteReturns = async (items: InvestmentReturn[]) => {
+    if (items.length === 0) return;
+    const names =
+      items.length === 1
+        ? `"${items[0].description}"`
+        : `${items.length} mục đã chọn`;
+    if (!window.confirm(`Bạn có chắc muốn xóa ${names} không?`)) return;
+
+    const supabase = createClient();
+    const { error: dbError } = await supabase
+      .from("investment_returns")
+      .delete()
+      .in(
+        "id",
+        items.map((item) => item.id),
+      );
+
+    if (dbError) {
+      setReturnError("Không thể xóa giao dịch thu tiền. Vui lòng thử lại.");
+      return;
+    }
+
+    setSelectedReturnIds([]);
+    showToast("Xóa thành công");
+    startTransition(() => router.refresh());
+  };
+
+  const handleBulkDeleteCapitals = async (items: Expense[]) => {
+    if (items.length === 0) return;
+    const names =
+      items.length === 1
+        ? `"${items[0].description}"`
+        : `${items.length} mục đã chọn`;
+    if (!window.confirm(`Bạn có chắc muốn xóa ${names} không?`)) return;
+
+    const supabase = createClient();
+    const { error: dbError } = await supabase
+      .from("investments")
+      .delete()
+      .in(
+        "id",
+        items.map((item) => item.id),
+      );
+
+    if (dbError) {
+      setCapitalError("Không thể xóa lần rót vốn. Vui lòng thử lại.");
+      return;
+    }
+
+    setSelectedCapitalIds([]);
+    showToast("Xóa thành công");
+    startTransition(() => router.refresh());
+  };
+
+  const handleDeleteAllSelectedMobile = async () => {
+    if (totalSelectedMobileItems === 0) return;
+
+    const names =
+      totalSelectedMobileItems === 1
+        ? "mục đã chọn"
+        : `${totalSelectedMobileItems} mục đã chọn`;
+
+    if (!window.confirm(`Bạn có chắc muốn xóa ${names} không?`)) {
+      return;
+    }
+
+    const supabase = createClient();
+
+    if (selectedValuationIds.length > 0) {
+      const { error: valuationError } = await supabase
+        .from("investment_valuations")
+        .delete()
+        .in("id", selectedValuationIds);
+
+      if (valuationError) {
+        setError("Không thể xóa giá trị tháng. Vui lòng thử lại.");
+        return;
+      }
+    }
+
+    if (selectedReturnIds.length > 0) {
+      const { error: returnDbError } = await supabase
+        .from("investment_returns")
+        .delete()
+        .in("id", selectedReturnIds);
+
+      if (returnDbError) {
+        setReturnError("Không thể xóa giao dịch thu tiền. Vui lòng thử lại.");
+        return;
+      }
+    }
+
+    if (selectedCapitalIds.length > 0) {
+      const { error: capitalDbError } = await supabase
+        .from("investments")
+        .delete()
+        .in("id", selectedCapitalIds);
+
+      if (capitalDbError) {
+        setCapitalError("Không thể xóa lần rót vốn. Vui lòng thử lại.");
+        return;
+      }
+    }
+
+    setSelectedValuationIds([]);
+    setSelectedReturnIds([]);
+    setSelectedCapitalIds([]);
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
   };
@@ -763,7 +1163,7 @@ export default function InvestmentAssetDetailClient({
 
       <div
         data-dashboard-scroll-root
-        className="flex-1 overflow-y-auto px-4 py-6 custom-scrollbar sm:px-6"
+        className="flex-1 overflow-y-auto px-4 py-6 pb-28 custom-scrollbar sm:px-6 sm:pb-6"
       >
         <div className="mb-4 flex items-center justify-between">
           <Link
@@ -1005,7 +1405,10 @@ export default function InvestmentAssetDetailClient({
               }}
             >
               <div className="mb-4">
-                <p className="text-lg font-semibold text-white">
+                <p
+                  ref={valuationSectionTitleRef}
+                  className="text-lg font-semibold text-white"
+                >
                   Cập nhật giá trị hàng tháng
                 </p>
                 <p
@@ -1017,96 +1420,105 @@ export default function InvestmentAssetDetailClient({
                 </p>
               </div>
 
-              <form
-                onSubmit={saveValuation}
-                className="grid gap-3 sm:grid-cols-2"
-              >
-                <div>
-                  <label
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "rgba(226,255,232,0.5)" }}
-                  >
-                    Tháng ghi nhận
-                  </label>
-                  <DateInput
-                    value={valuationDate}
-                    onChange={setValuationDate}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={openCreateValuationModal}
+                  className="btn-primary inline-flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Thêm giá trị tháng
+                </button>
+                {editingValuationId && (
+                  <span
+                    className="rounded-full border px-3 py-1 text-xs font-medium"
                     style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      borderRadius: "12px",
-                      border: "1px solid rgba(45,154,75,0.2)",
-                      background: "rgba(5,13,8,0.8)",
-                      color: "#e2ffe8",
-                      outline: "none",
-                      fontSize: "14px",
+                      borderColor: "rgba(45,154,75,0.18)",
+                      background: "rgba(45,154,75,0.08)",
+                      color: "#aaf0be",
                     }}
-                  />
-                </div>
-                <div>
-                  <label
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "rgba(226,255,232,0.5)" }}
                   >
-                    Giá trị hiện tại
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={valuationAmount}
-                    onChange={(event) =>
-                      setValuationAmount(formatNumberInput(event.target.value))
-                    }
-                    maxLength={15}
-                    className="w-full rounded-xl border px-4 py-3 text-sm text-white outline-none"
-                    style={{
-                      borderColor: "rgba(45,154,75,0.2)",
-                      background: "rgba(5,13,8,0.8)",
-                    }}
-                  />
-                </div>
-                <div className="sm:col-span-2">
-                  <label
-                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
-                    style={{ color: "rgba(226,255,232,0.5)" }}
-                  >
-                    Ghi chú
-                  </label>
-                  <input
-                    type="text"
-                    value={valuationNote}
-                    onChange={(event) => setValuationNote(event.target.value)}
-                    maxLength={200}
-                    className="w-full rounded-xl border px-4 py-3 text-sm text-white outline-none"
-                    style={{
-                      borderColor: "rgba(45,154,75,0.2)",
-                      background: "rgba(5,13,8,0.8)",
-                    }}
-                  />
-                </div>
-                <div className="sm:col-span-2">
+                    Đang chỉnh sửa
+                  </span>
+                )}
+              </div>
+
+              <div className="mb-4 mt-4 flex flex-wrap items-center justify-end gap-2">
+                {filteredValuationCount > 0 && (
                   <button
-                    type="submit"
-                    disabled={isPending}
-                    className="btn-primary inline-flex items-center gap-2"
+                    type="button"
+                    onClick={() =>
+                      setSelectedValuationIds(
+                        allVisibleValuationsSelected
+                          ? selectedValuationIds.filter(
+                              (id) =>
+                                !visibleValuations.some(
+                                  (item) => item.id === id,
+                                ),
+                            )
+                          : Array.from(
+                              new Set([
+                                ...selectedValuationIds,
+                                ...visibleValuations.map((item) => item.id),
+                              ]),
+                            ),
+                      )
+                    }
+                    className="rounded-xl border px-4 py-2 text-sm font-semibold"
+                    style={{
+                      borderColor: "rgba(45,154,75,0.16)",
+                      background: "rgba(255,255,255,0.04)",
+                      color: "#e2ffe8",
+                    }}
                   >
-                    <Plus className="h-4 w-4" />
-                    Lưu giá trị tháng
+                    {allVisibleValuationsSelected ? "Bỏ chọn" : "Chọn tất cả"}
                   </button>
-                </div>
-              </form>
+                )}
+                {selectedValuations.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleBulkDeleteValuations(selectedValuations)
+                    }
+                    className="hidden rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 lg:inline-flex"
+                  >
+                    Xóa đã chọn ({selectedValuations.length})
+                  </button>
+                )}
+              </div>
 
               <div className="mt-6 space-y-3">
-                {valuations.map((valuation) => (
+                {visibleValuations.map((valuation) => (
                   <div
                     key={valuation.id}
-                    className="flex items-center justify-between rounded-2xl border px-4 py-3"
+                    className="flex items-center gap-3 rounded-2xl border px-4 py-3"
                     style={{
                       borderColor: "rgba(45,154,75,0.1)",
                       background: "rgba(255,255,255,0.03)",
                     }}
                   >
-                    <div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        toggleSelection(valuation.id, setSelectedValuationIds)
+                      }
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+                        selectedValuationIds.includes(valuation.id)
+                          ? "border-transparent bg-[#2D9A4B] text-white"
+                          : "bg-transparent text-transparent"
+                      }`}
+                      style={{
+                        borderColor: selectedValuationIds.includes(valuation.id)
+                          ? "#2D9A4B"
+                          : "rgba(226,255,232,0.35)",
+                      }}
+                      aria-label={`Chọn ${formatDate(valuation.valuation_month)}`}
+                    >
+                      {selectedValuationIds.includes(valuation.id) ? (
+                        <span className="text-[11px] leading-none">✓</span>
+                      ) : null}
+                    </button>
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-white">
                         {formatDate(valuation.valuation_month)}
                       </p>
@@ -1117,10 +1529,19 @@ export default function InvestmentAssetDetailClient({
                         {valuation.note || "Không có ghi chú"}
                       </p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-3">
                       <p className="text-sm font-bold text-white">
                         {formatCurrency(valuation.current_value)}
                       </p>
+                      <button
+                        type="button"
+                        onClick={() => startEditValuation(valuation)}
+                        className="rounded-xl bg-blue-500/10 p-2 text-blue-400"
+                        title="Sửa"
+                        aria-label={`Sửa ${formatDate(valuation.valuation_month)}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() =>
@@ -1129,13 +1550,78 @@ export default function InvestmentAssetDetailClient({
                             formatDate(valuation.valuation_month),
                           )
                         }
+                        disabled={deletingValuationId === valuation.id}
                         className="rounded-xl bg-red-500/10 p-2 text-red-400"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {deletingValuationId === valuation.id ? (
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-400/40 border-t-red-400" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                   </div>
                 ))}
+              </div>
+              <div className="mt-4 flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                <p
+                  className="text-sm"
+                  style={{ color: "rgba(226,255,232,0.45)" }}
+                >
+                  Hiển thị {valuationDisplayCount} / {filteredValuationCount}{" "}
+                  mục
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      shouldScrollValuationPaginationRef.current = true;
+                      navigateWithFilters({
+                        valuation_page: Math.max(1, safeValuationPage - 1),
+                      });
+                    }}
+                    disabled={safeValuationPage <= 1}
+                    className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                    style={{
+                      borderColor: "rgba(45,154,75,0.16)",
+                      background: "rgba(255,255,255,0.04)",
+                      color: "#e2ffe8",
+                    }}
+                  >
+                    Trước
+                  </button>
+                  <span
+                    className="rounded-xl border px-4 py-2 text-sm font-semibold"
+                    style={{
+                      borderColor: "rgba(45,154,75,0.16)",
+                      background: "rgba(45,154,75,0.08)",
+                      color: "#aaf0be",
+                    }}
+                  >
+                    {safeValuationPage} / {totalValuationPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      shouldScrollValuationPaginationRef.current = true;
+                      navigateWithFilters({
+                        valuation_page: Math.min(
+                          totalValuationPages,
+                          safeValuationPage + 1,
+                        ),
+                      });
+                    }}
+                    disabled={safeValuationPage >= totalValuationPages}
+                    className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                    style={{
+                      borderColor: "rgba(45,154,75,0.16)",
+                      background: "rgba(255,255,255,0.04)",
+                      color: "#e2ffe8",
+                    }}
+                  >
+                    Sau
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1172,7 +1658,7 @@ export default function InvestmentAssetDetailClient({
                     Thêm thu tiền về
                   </button>
                 </div>
-                <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
                   {editingReturnId && (
                     <span
                       className="rounded-full border px-3 py-1 text-xs font-medium"
@@ -1185,6 +1671,47 @@ export default function InvestmentAssetDetailClient({
                       Đang chỉnh sửa
                     </span>
                   )}
+                  <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+                    {filteredReturnCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSelectedReturnIds(
+                            allVisibleReturnsSelected
+                              ? selectedReturnIds.filter(
+                                  (id) =>
+                                    !visibleReturns.some(
+                                      (item) => item.id === id,
+                                    ),
+                                )
+                              : Array.from(
+                                  new Set([
+                                    ...selectedReturnIds,
+                                    ...visibleReturns.map((item) => item.id),
+                                  ]),
+                                ),
+                          )
+                        }
+                        className="rounded-xl border px-4 py-2 text-sm font-semibold"
+                        style={{
+                          borderColor: "rgba(45,154,75,0.16)",
+                          background: "rgba(255,255,255,0.04)",
+                          color: "#e2ffe8",
+                        }}
+                      >
+                        {allVisibleReturnsSelected ? "Bỏ chọn" : "Chọn tất cả"}
+                      </button>
+                    )}
+                    {selectedReturns.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleBulkDeleteReturns(selectedReturns)}
+                        className=" rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 lg:inline-flex"
+                      >
+                        Xóa đã chọn ({selectedReturns.length})
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <form
                   className="mt-4"
@@ -1272,71 +1799,99 @@ export default function InvestmentAssetDetailClient({
                   </div>
                 </form>
 
-                {filteredReturns.length > 0 ? (
+                {filteredReturnCount > 0 ? (
                   <div className="mt-6 space-y-3">
                     {visibleReturns.map((item) => (
                       <div
                         key={item.id}
-                        className="flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex gap-3 rounded-2xl border px-4 py-3"
                         style={{
                           borderColor: "rgba(45,154,75,0.1)",
                           background: "rgba(255,255,255,0.03)",
                         }}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="truncate text-sm font-semibold text-white"
-                            title={item.description}
-                          >
-                            {item.description}
-                          </p>
-                          <p
-                            className="mt-1 truncate text-xs"
-                            style={{ color: "rgba(226,255,232,0.45)" }}
-                          >
-                            {formatDate(item.date)}
-                          </p>
-                          {item.category?.name && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            toggleSelection(item.id, setSelectedReturnIds)
+                          }
+                          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+                            selectedReturnIds.includes(item.id)
+                              ? "border-transparent bg-[#2D9A4B] text-white"
+                              : "bg-transparent text-transparent"
+                          }`}
+                          style={{
+                            borderColor: selectedReturnIds.includes(item.id)
+                              ? "#2D9A4B"
+                              : "rgba(226,255,232,0.35)",
+                          }}
+                          aria-label={`Chọn ${item.description}`}
+                        >
+                          {selectedReturnIds.includes(item.id) ? (
+                            <span className="text-[11px] leading-none">✓</span>
+                          ) : null}
+                        </button>
+                        <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <p
+                              className="truncate text-sm font-semibold text-white"
+                              title={item.description}
+                            >
+                              {item.description}
+                            </p>
                             <p
                               className="mt-1 truncate text-xs"
-                              title={item.category.name}
-                              style={{ color: "#aaf0be" }}
+                              style={{ color: "rgba(226,255,232,0.45)" }}
                             >
-                              {item.category.name}
+                              {formatDate(item.date)}
                             </p>
-                          )}
-                          {item.note && (
-                            <p
-                              className="mt-1 line-clamp-1 text-xs"
-                              style={{ color: "rgba(226,255,232,0.55)" }}
-                              title={item.note}
+                            {item.category?.name && (
+                              <p
+                                className="mt-1 truncate text-xs"
+                                title={item.category.name}
+                                style={{ color: "#aaf0be" }}
+                              >
+                                {item.category.name}
+                              </p>
+                            )}
+                            {item.note && (
+                              <p
+                                className="mt-1 line-clamp-1 text-xs"
+                                style={{ color: "rgba(226,255,232,0.55)" }}
+                                title={item.note}
+                              >
+                                {item.note}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2 sm:shrink-0">
+                            <p className="max-w-[120px] truncate text-sm font-bold text-green-400 sm:max-w-none sm:text-right">
+                              +{formatCurrency(item.amount)}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => startEditReturn(item)}
+                              className="rounded-xl bg-blue-500/10 p-2 text-blue-400"
+                              title="Sửa"
+                              aria-label={`Sửa ${item.description}`}
                             >
-                              {item.note}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center justify-between gap-2 sm:shrink-0">
-                          <p className="max-w-[120px] truncate text-sm font-bold text-green-400 sm:max-w-none sm:text-right">
-                            +{formatCurrency(item.amount)}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => startEditReturn(item)}
-                            className="rounded-xl bg-blue-500/10 p-2 text-blue-400"
-                            title="Sửa"
-                            aria-label={`Sửa ${item.description}`}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => deleteReturn(item)}
-                            className="rounded-xl bg-red-500/10 p-2 text-red-400"
-                            title="Xóa"
-                            aria-label={`Xóa ${item.description}`}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteReturn(item)}
+                              disabled={deletingReturnId === item.id}
+                              className="rounded-xl bg-red-500/10 p-2 text-red-400"
+                              title="Xóa"
+                              aria-label={`Xóa ${item.description}`}
+                            >
+                              {deletingReturnId === item.id ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-400/40 border-t-red-400" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1368,15 +1923,17 @@ export default function InvestmentAssetDetailClient({
                     className="text-sm"
                     style={{ color: "rgba(226,255,232,0.45)" }}
                   >
-                    Hiển thị {returnDisplayCount} / {filteredReturns.length}{" "}
-                    giao dịch
+                    Hiển thị {returnDisplayCount} / {filteredReturnCount} giao
+                    dịch
                   </p>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => {
                         shouldScrollReturnPaginationRef.current = true;
-                        setReturnPage((page) => Math.max(1, page - 1));
+                        navigateWithFilters({
+                          return_page: Math.max(1, safeReturnPage - 1),
+                        });
                       }}
                       disabled={safeReturnPage <= 1}
                       className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
@@ -1402,9 +1959,12 @@ export default function InvestmentAssetDetailClient({
                       type="button"
                       onClick={() => {
                         shouldScrollReturnPaginationRef.current = true;
-                        setReturnPage((page) =>
-                          Math.min(totalReturnPages, page + 1),
-                        );
+                        navigateWithFilters({
+                          return_page: Math.min(
+                            totalReturnPages,
+                            safeReturnPage + 1,
+                          ),
+                        });
                       }}
                       disabled={safeReturnPage >= totalReturnPages}
                       className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
@@ -1444,7 +2004,7 @@ export default function InvestmentAssetDetailClient({
                   Thêm rót vốn
                 </button>
               </div>
-              <div className="flex items-start justify-between gap-3">
+              <div className="mt-4 flex flex-wrap items-start justify-between gap-3">
                 {editingCapitalId && (
                   <span
                     className="rounded-full border px-3 py-1 text-xs font-medium"
@@ -1457,6 +2017,49 @@ export default function InvestmentAssetDetailClient({
                     Đang chỉnh sửa
                   </span>
                 )}
+                <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
+                  {filteredCapitalCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setSelectedCapitalIds(
+                          allVisibleCapitalsSelected
+                            ? selectedCapitalIds.filter(
+                                (id) =>
+                                  !visibleCapitalInvestments.some(
+                                    (item) => item.id === id,
+                                  ),
+                              )
+                            : Array.from(
+                                new Set([
+                                  ...selectedCapitalIds,
+                                  ...visibleCapitalInvestments.map(
+                                    (item) => item.id,
+                                  ),
+                                ]),
+                              ),
+                        )
+                      }
+                      className="rounded-xl border px-4 py-2 text-sm font-semibold"
+                      style={{
+                        borderColor: "rgba(45,154,75,0.16)",
+                        background: "rgba(255,255,255,0.04)",
+                        color: "#e2ffe8",
+                      }}
+                    >
+                      {allVisibleCapitalsSelected ? "Bỏ chọn" : "Chọn tất cả"}
+                    </button>
+                  )}
+                  {selectedCapitals.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleBulkDeleteCapitals(selectedCapitals)}
+                      className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 lg:inline-flex"
+                    >
+                      Xóa đã chọn ({selectedCapitals.length})
+                    </button>
+                  )}
+                </div>
               </div>
               <form
                 className="mt-4"
@@ -1714,71 +2317,99 @@ export default function InvestmentAssetDetailClient({
                 </div>
               </form>
 
-              {filteredCapitalInvestments.length > 0 ? (
+              {filteredCapitalCount > 0 ? (
                 <div className="mt-6 space-y-3">
                   {visibleCapitalInvestments.map((item) => (
                     <div
                       key={item.id}
-                      className="flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      className="flex gap-3 rounded-2xl border px-4 py-3"
                       style={{
                         borderColor: "rgba(45,154,75,0.1)",
                         background: "rgba(255,255,255,0.03)",
                       }}
                     >
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className="truncate text-sm font-semibold text-white"
-                          title={item.description}
-                        >
-                          {item.description}
-                        </p>
-                        <p
-                          className="mt-1 truncate text-xs"
-                          style={{ color: "rgba(226,255,232,0.45)" }}
-                        >
-                          {formatDate(item.date)}
-                        </p>
-                        {asset.is_business && item.category?.name && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          toggleSelection(item.id, setSelectedCapitalIds)
+                        }
+                        className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border transition ${
+                          selectedCapitalIds.includes(item.id)
+                            ? "border-transparent bg-[#2D9A4B] text-white"
+                            : "bg-transparent text-transparent"
+                        }`}
+                        style={{
+                          borderColor: selectedCapitalIds.includes(item.id)
+                            ? "#2D9A4B"
+                            : "rgba(226,255,232,0.35)",
+                        }}
+                        aria-label={`Chọn ${item.description}`}
+                      >
+                        {selectedCapitalIds.includes(item.id) ? (
+                          <span className="text-[11px] leading-none">✓</span>
+                        ) : null}
+                      </button>
+                      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="truncate text-sm font-semibold text-white"
+                            title={item.description}
+                          >
+                            {item.description}
+                          </p>
                           <p
                             className="mt-1 truncate text-xs"
-                            title={item.category.name}
-                            style={{ color: "#aaf0be" }}
+                            style={{ color: "rgba(226,255,232,0.45)" }}
                           >
-                            {item.category.name}
+                            {formatDate(item.date)}
                           </p>
-                        )}
-                        {item.note && (
-                          <p
-                            className="mt-1 line-clamp-1 text-xs"
-                            style={{ color: "rgba(226,255,232,0.55)" }}
-                            title={item.note}
+                          {asset.is_business && item.category?.name && (
+                            <p
+                              className="mt-1 truncate text-xs"
+                              title={item.category.name}
+                              style={{ color: "#aaf0be" }}
+                            >
+                              {item.category.name}
+                            </p>
+                          )}
+                          {item.note && (
+                            <p
+                              className="mt-1 line-clamp-1 text-xs"
+                              style={{ color: "rgba(226,255,232,0.55)" }}
+                              title={item.note}
+                            >
+                              {item.note}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 sm:shrink-0">
+                          <p className="max-w-[120px] truncate text-sm font-bold text-white sm:max-w-none sm:text-right">
+                            {formatCurrency(item.amount)}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => startEditCapital(item)}
+                            className="rounded-xl bg-blue-500/10 p-2 text-blue-400"
+                            title="Sửa"
+                            aria-label={`Sửa ${item.description}`}
                           >
-                            {item.note}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between gap-2 sm:shrink-0">
-                        <p className="max-w-[120px] truncate text-sm font-bold text-white sm:max-w-none sm:text-right">
-                          {formatCurrency(item.amount)}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => startEditCapital(item)}
-                          className="rounded-xl bg-blue-500/10 p-2 text-blue-400"
-                          title="Sửa"
-                          aria-label={`Sửa ${item.description}`}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => deleteCapitalContribution(item)}
-                          className="rounded-xl bg-red-500/10 p-2 text-red-400"
-                          title="Xóa"
-                          aria-label={`Xóa ${item.description}`}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteCapitalContribution(item)}
+                            disabled={deletingCapitalId === item.id}
+                            className="rounded-xl bg-red-500/10 p-2 text-red-400"
+                            title="Xóa"
+                            aria-label={`Xóa ${item.description}`}
+                          >
+                            {deletingCapitalId === item.id ? (
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-red-400/40 border-t-red-400" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1810,15 +2441,17 @@ export default function InvestmentAssetDetailClient({
                   className="text-sm"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  Hiển thị {capitalDisplayCount} /{" "}
-                  {filteredCapitalInvestments.length} giao dịch
+                  Hiển thị {capitalDisplayCount} / {filteredCapitalCount} giao
+                  dịch
                 </p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => {
                       shouldScrollCapitalPaginationRef.current = true;
-                      setCapitalPage((page) => Math.max(1, page - 1));
+                      navigateWithFilters({
+                        capital_page: Math.max(1, safeCapitalPage - 1),
+                      });
                     }}
                     disabled={safeCapitalPage <= 1}
                     className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
@@ -1844,9 +2477,12 @@ export default function InvestmentAssetDetailClient({
                     type="button"
                     onClick={() => {
                       shouldScrollCapitalPaginationRef.current = true;
-                      setCapitalPage((page) =>
-                        Math.min(totalCapitalPages, page + 1),
-                      );
+                      navigateWithFilters({
+                        capital_page: Math.min(
+                          totalCapitalPages,
+                          safeCapitalPage + 1,
+                        ),
+                      });
                     }}
                     disabled={safeCapitalPage >= totalCapitalPages}
                     className="rounded-xl border px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
@@ -1863,10 +2499,159 @@ export default function InvestmentAssetDetailClient({
             </div>
           </div>
         </div>
+        {valuationModalOpen && (
+          <ModalOverlay
+            onClose={cancelEditValuation}
+            panelClassName="w-[calc(100%-1rem)] sm:w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelStyle={{
+              background: "rgba(8,20,12,0.97)",
+              border: "1px solid rgba(45,154,75,0.2)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div className="flex justify-center pb-1 pt-3 sm:hidden">
+              <div
+                className="h-1 w-10 rounded-full"
+                style={{ background: "rgba(45,154,75,0.3)" }}
+              />
+            </div>
+
+            <div
+              className="flex items-center justify-between border-b px-6 py-4"
+              style={{ borderColor: "rgba(45,154,75,0.12)" }}
+            >
+              <div>
+                <h2 className="text-lg font-bold text-white">
+                  {editingValuationId
+                    ? "Chỉnh sửa giá trị tháng"
+                    : "Thêm giá trị tháng"}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={cancelEditValuation}
+                className="flex h-8 w-8 items-center justify-center rounded-xl transition-colors"
+                style={{
+                  color: "rgba(226,255,232,0.5)",
+                  background: "rgba(255,255,255,0.05)",
+                }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={handleSaveValuation}
+              className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
+            >
+              {error && (
+                <div
+                  className="rounded-xl px-4 py-3 text-sm"
+                  style={{
+                    background: "rgba(239,68,68,0.1)",
+                    border: "1px solid rgba(239,68,68,0.3)",
+                    color: "#fca5a5",
+                  }}
+                >
+                  {error}
+                </div>
+              )}
+
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.5)" }}
+                >
+                  Tháng ghi nhận
+                </label>
+                <DateInput
+                  value={valuationDate}
+                  onChange={setValuationDate}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    borderRadius: "12px",
+                    border: "1px solid rgba(45,154,75,0.2)",
+                    background: "rgba(5,13,8,0.8)",
+                    color: "#e2ffe8",
+                    outline: "none",
+                    fontSize: "14px",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.5)" }}
+                >
+                  Giá trị hiện tại
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={valuationAmount}
+                  onChange={(event) =>
+                    setValuationAmount(formatNumberInput(event.target.value))
+                  }
+                  maxLength={15}
+                  className="w-full rounded-xl border px-4 py-3 text-sm text-white outline-none"
+                  style={{
+                    borderColor: "rgba(45,154,75,0.2)",
+                    background: "rgba(5,13,8,0.8)",
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                  style={{ color: "rgba(226,255,232,0.5)" }}
+                >
+                  Ghi chú
+                </label>
+                <input
+                  type="text"
+                  value={valuationNote}
+                  onChange={(event) => setValuationNote(event.target.value)}
+                  maxLength={200}
+                  className="w-full rounded-xl border px-4 py-3 text-sm text-white outline-none"
+                  style={{
+                    borderColor: "rgba(45,154,75,0.2)",
+                    background: "rgba(5,13,8,0.8)",
+                  }}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={cancelEditValuation}
+                  className="rounded-xl border px-4 py-3 text-sm font-semibold"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.1)",
+                    background: "rgba(255,255,255,0.05)",
+                    color: "rgba(226,255,232,0.7)",
+                  }}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="btn-primary inline-flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  {editingValuationId ? "Lưu thay đổi" : "Lưu giá trị tháng"}
+                </button>
+              </div>
+            </form>
+          </ModalOverlay>
+        )}
         {returnModalOpen && (
           <ModalOverlay
             onClose={cancelEditReturn}
-            panelClassName="w-full sm:max-w-xl max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelClassName="w-[calc(100%-1rem)] sm:w-full sm:max-w-xl max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
               border: "1px solid rgba(45,154,75,0.2)",
@@ -2045,7 +2830,7 @@ export default function InvestmentAssetDetailClient({
                   }}
                 >
                   <Plus className="h-4 w-4" />
-                  Táº¡o danh má»¥c má»›i
+                  Tạo danh mục mới
                 </button>
               </div>
 
@@ -2102,7 +2887,7 @@ export default function InvestmentAssetDetailClient({
         {capitalModalOpen && (
           <ModalOverlay
             onClose={cancelEditCapital}
-            panelClassName="w-full sm:max-w-xl max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelClassName="w-[calc(100%-1rem)] sm:w-full sm:max-w-xl max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
               border: "1px solid rgba(45,154,75,0.2)",
@@ -2331,7 +3116,7 @@ export default function InvestmentAssetDetailClient({
         {showNewCapitalCategoryInput && (
           <ModalOverlay
             onClose={closeCreateCategoryModal}
-            panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelClassName="w-[calc(100%-1rem)] sm:w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
               border: "1px solid rgba(59,130,246,0.28)",
@@ -2449,6 +3234,26 @@ export default function InvestmentAssetDetailClient({
           </ModalOverlay>
         )}
       </div>
+      {showMobileBulkActionBar && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:hidden">
+          <div
+            className="pointer-events-auto rounded-3xl border p-3 shadow-2xl backdrop-blur"
+            style={{
+              borderColor: "rgba(239,68,68,0.22)",
+              background: "rgba(8,20,12,0.94)",
+              boxShadow: "0 -20px 60px rgba(0,0,0,0.45)",
+            }}
+          >
+            <button
+              type="button"
+              onClick={handleDeleteAllSelectedMobile}
+              className="w-full rounded-2xl bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-400"
+            >
+              Xóa đã chọn ({totalSelectedMobileItems})
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

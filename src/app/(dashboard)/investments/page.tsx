@@ -5,7 +5,6 @@ import {
   TransactionSearchParams,
 } from "../transactions/getTransactionPageData";
 import { createClient } from "@/lib/supabase/server";
-import { Category, Expense, InvestmentAsset } from "@/types";
 
 function firstParam(value: string | string[] | undefined): string {
   if (Array.isArray(value)) return value[0] || "";
@@ -54,9 +53,49 @@ export default async function InvestmentsPage({
       ? rawCategory
       : "all";
 
+  let assetIdsForCategory: string[] | null = null;
+
+  if (filterCategory !== "all") {
+    const { data: matchingAssets } = await supabase
+      .from("investment_assets")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("category_id", filterCategory);
+
+    assetIdsForCategory = (matchingAssets || []).map((item) => item.id);
+
+    if (assetIdsForCategory.length === 0) {
+      const { data: investmentAssets } = await supabase
+        .from("investment_assets")
+        .select("*, category:categories(*)")
+        .eq("user_id", user.id)
+        .order("started_at", { ascending: false });
+
+      return (
+        <ExpensesClient
+          initialExpenses={[]}
+          categories={categories || []}
+          userId={user.id}
+          currentPage={currentPage}
+          pageSize={PAGE_SIZE}
+          totalCount={0}
+          searchQuery={searchQuery}
+          filterCategory={filterCategory}
+          filterDateFrom={filterDateFrom}
+          filterDateTo={filterDateTo}
+          transactionType="investment"
+          investmentAssets={investmentAssets || []}
+        />
+      );
+    }
+  }
+
   let investmentsQuery = supabase
     .from("investments")
-    .select("*, category:categories(*), asset:investment_assets(*, category:categories(*))")
+    .select(
+      "*, category:categories(*), asset:investment_assets(*, category:categories(*))",
+      { count: "exact" },
+    )
     .eq("user_id", user.id)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
@@ -76,26 +115,14 @@ export default async function InvestmentsPage({
     investmentsQuery = investmentsQuery.lte("date", filterDateTo);
   }
 
-  const { data: allInvestments } = await investmentsQuery;
+  if (assetIdsForCategory) {
+    investmentsQuery = investmentsQuery.in("asset_id", assetIdsForCategory);
+  }
 
-  const filteredInvestments = (allInvestments || []).filter((item) => {
-    if (filterCategory === "all") {
-      return true;
-    }
-
-    const assetCategoryId = item.asset?.category_id || item.asset?.category?.id || "";
-    return assetCategoryId === filterCategory;
-  });
-
-  const totalCount = filteredInvestments.length;
-  const paginatedInvestments = filteredInvestments.slice(
+  const { data: paginatedInvestments, count } = await investmentsQuery.range(
     (currentPage - 1) * PAGE_SIZE,
-    currentPage * PAGE_SIZE,
-  ) as (Expense & {
-    category?: Category;
-    asset?: InvestmentAsset;
-    asset_id?: string | null;
-  })[];
+    currentPage * PAGE_SIZE - 1,
+  );
 
   const { data: investmentAssets } = await supabase
     .from("investment_assets")
@@ -105,12 +132,12 @@ export default async function InvestmentsPage({
 
   return (
     <ExpensesClient
-      initialExpenses={paginatedInvestments}
+      initialExpenses={paginatedInvestments || []}
       categories={categories || []}
       userId={user.id}
       currentPage={currentPage}
       pageSize={PAGE_SIZE}
-      totalCount={totalCount}
+      totalCount={count || 0}
       searchQuery={searchQuery}
       filterCategory={filterCategory}
       filterDateFrom={filterDateFrom}
