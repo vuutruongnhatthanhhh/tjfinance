@@ -96,7 +96,10 @@ export default function InvestmentAssetDetailClient({
     initialReturnCategoryOptions,
   );
   const [assetCategoryId, setAssetCategoryId] = useState(
-    asset.category_id || asset.category?.id || assetCategoryOptions[0]?.id || "",
+    asset.category_id ||
+      asset.category?.id ||
+      assetCategoryOptions[0]?.id ||
+      "",
   );
   const defaultCapitalCategoryId = asset.is_business
     ? ""
@@ -1863,7 +1866,7 @@ export default function InvestmentAssetDetailClient({
         {returnModalOpen && (
           <ModalOverlay
             onClose={cancelEditReturn}
-            panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelClassName="w-full sm:max-w-xl max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
               border: "1px solid rgba(45,154,75,0.2)",
@@ -2099,7 +2102,7 @@ export default function InvestmentAssetDetailClient({
         {capitalModalOpen && (
           <ModalOverlay
             onClose={cancelEditCapital}
-            panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelClassName="w-full sm:max-w-xl max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
               border: "1px solid rgba(45,154,75,0.2)",
@@ -2248,7 +2251,11 @@ export default function InvestmentAssetDetailClient({
                         background: "rgba(5,13,8,0.8)",
                       }}
                     >
-                      <option value="" style={{ background: "#0a1a0f" }}>
+                      <option
+                        disabled
+                        value=""
+                        style={{ background: "#0a1a0f" }}
+                      >
                         {capitalCategories.length === 0 ? "" : "Chọn danh mục"}
                       </option>
                       {capitalCategories.map((category) => (
@@ -2324,7 +2331,7 @@ export default function InvestmentAssetDetailClient({
         {showNewCapitalCategoryInput && (
           <ModalOverlay
             onClose={closeCreateCategoryModal}
-            panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+            panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
             panelStyle={{
               background: "rgba(8,20,12,0.97)",
               border: "1px solid rgba(59,130,246,0.28)",

@@ -124,6 +124,7 @@ const INVESTMENT_ASSET_NAME_MAX_LENGTH = 80;
 const INVESTMENT_ASSET_DESCRIPTION_MAX_LENGTH = 120;
 const EXPENSE_NOTE_MAX_LENGTH = 200;
 const SEARCH_INPUT_MAX_LENGTH = 100;
+const CATEGORY_NAME_MAX_LENGTH = 50;
 
 const TRANSACTION_CONFIG: Record<
   TransactionType,
@@ -248,11 +249,16 @@ function AddExpenseModal({
   const isEdit = Boolean(expense);
   const { showToast } = useToast();
   const initialIsBusiness = expense?.asset?.is_business || false;
-  const investmentCategories = categories.filter(
-    (category) => category.type === "investment",
+  const [investmentCategories] = useState(
+    categories.filter((category) => category.type === "investment"),
+  );
+  const [businessCategories, setBusinessCategories] = useState(
+    categories.filter((category) => category.type === "business"),
   );
   const defaultTransactionCategories = isInvestment
-    ? investmentCategories
+    ? initialIsBusiness
+      ? businessCategories
+      : investmentCategories
     : categories.filter((category) => category.type === transactionType);
   const [amount, setAmount] = useState(
     expense ? formatNumberInput(String(expense.amount)) : "",
@@ -273,6 +279,11 @@ function AddExpenseModal({
   );
   const [isBusiness, setIsBusiness] = useState(initialIsBusiness);
   const [showCreateAssetModal, setShowCreateAssetModal] = useState(false);
+  const [showCreateBusinessCategoryModal, setShowCreateBusinessCategoryModal] =
+    useState(false);
+  const [newBusinessCategoryName, setNewBusinessCategoryName] = useState("");
+  const [newBusinessCategorySaving, setNewBusinessCategorySaving] =
+    useState(false);
   const [assetDraftError, setAssetDraftError] = useState("");
   const [isAssetAccordionOpen, setIsAssetAccordionOpen] = useState(false);
   const [date, setDate] = useState(
@@ -286,8 +297,20 @@ function AddExpenseModal({
     (item) => item.id === selectedAssetId,
   );
   const isCreatingNewAsset = !selectedAssetId && hasNewAssetDraft;
-  const isCategoryLocked = isInvestment && Boolean(selectedExistingAsset);
-  const transactionCategories = defaultTransactionCategories;
+  const selectedInvestmentIsBusiness =
+    selectedExistingAsset?.is_business ?? false;
+  const isBusinessInvestment = isInvestment
+    ? selectedInvestmentIsBusiness || (!selectedExistingAsset && isBusiness)
+    : false;
+  const isCategoryLocked =
+    isInvestment &&
+    Boolean(selectedExistingAsset) &&
+    !selectedInvestmentIsBusiness;
+  const transactionCategories = isInvestment
+    ? isBusinessInvestment
+      ? businessCategories
+      : investmentCategories
+    : defaultTransactionCategories;
   const assetAccordionSummary = isCreatingNewAsset
     ? assetName || "Khoản đầu tư mới"
     : selectedExistingAsset?.name || "Chưa chọn khoản đầu tư";
@@ -307,18 +330,31 @@ function AddExpenseModal({
       return;
     }
 
-    if (!investmentCategories.some((category) => category.id === assetCategoryId)) {
+    if (
+      !investmentCategories.some((category) => category.id === assetCategoryId)
+    ) {
       setAssetCategoryId(investmentCategories[0]?.id || "");
     }
   }, [assetCategoryId, investmentCategories, isInvestment]);
 
   useEffect(() => {
-    if (!isInvestment || selectedExistingAsset || !assetCategoryId) {
+    if (
+      !isInvestment ||
+      !assetCategoryId ||
+      selectedInvestmentIsBusiness ||
+      (!selectedExistingAsset && isBusiness)
+    ) {
       return;
     }
 
     setCategoryId(assetCategoryId);
-  }, [assetCategoryId, isInvestment, selectedExistingAsset]);
+  }, [
+    assetCategoryId,
+    isBusiness,
+    isInvestment,
+    selectedExistingAsset,
+    selectedInvestmentIsBusiness,
+  ]);
 
   const openCreateAssetModal = () => {
     setAssetDraftError("");
@@ -352,6 +388,64 @@ function AddExpenseModal({
     setSelectedAssetId("");
     setShowCreateAssetModal(false);
     setIsAssetAccordionOpen(false);
+  };
+
+  const openCreateBusinessCategoryModal = () => {
+    setError("");
+    setNewBusinessCategoryName("");
+    setShowCreateBusinessCategoryModal(true);
+  };
+
+  const closeCreateBusinessCategoryModal = () => {
+    setError("");
+    setNewBusinessCategoryName("");
+    setNewBusinessCategorySaving(false);
+    setShowCreateBusinessCategoryModal(false);
+  };
+
+  const createBusinessCategory = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const trimmedName = newBusinessCategoryName.trim();
+
+    if (!trimmedName) {
+      setError("Vui lòng nhập tên danh mục.");
+      return;
+    }
+
+    if (trimmedName.length > CATEGORY_NAME_MAX_LENGTH) {
+      setError(
+        `Tên danh mục không được vượt quá ${CATEGORY_NAME_MAX_LENGTH} ký tự.`,
+      );
+      return;
+    }
+
+    setNewBusinessCategorySaving(true);
+    const supabase = createClient();
+    const { data: createdCategory, error: createCategoryError } = await supabase
+      .from("categories")
+      .insert({
+        user_id: userId,
+        name: trimmedName,
+        icon: "briefcase",
+        color: "#2D9A4B",
+        type: "business",
+      })
+      .select("*")
+      .single();
+
+    if (createCategoryError || !createdCategory) {
+      setError("Không thể tạo danh mục mới. Vui lòng thử lại.");
+      setNewBusinessCategorySaving(false);
+      return;
+    }
+
+    setBusinessCategories((current) => [
+      ...current,
+      createdCategory as Category,
+    ]);
+    setCategoryId(createdCategory.id);
+    closeCreateBusinessCategoryModal();
+    showToast("Tạo mới thành công");
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -430,10 +524,18 @@ function AddExpenseModal({
       } else {
         assetId = selectedAssetId;
       }
+
+      if (isBusinessInvestment && !categoryId) {
+        setError("Vui lòng chọn hoặc tạo danh mục rót vốn.");
+        setLoading(false);
+        return;
+      }
     }
 
     const resolvedCategoryId = isInvestment
-      ? selectedExistingAsset?.category_id || assetCategoryId || null
+      ? isBusinessInvestment
+        ? categoryId || null
+        : selectedExistingAsset?.category_id || assetCategoryId || null
       : categoryId || null;
 
     const payload = {
@@ -476,7 +578,7 @@ function AddExpenseModal({
     <>
       <ModalOverlay
         onClose={onClose}
-        panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+        panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
         panelStyle={{
           background: "rgba(8,20,12,0.97)",
           border: "1px solid rgba(45,154,75,0.2)",
@@ -682,11 +784,20 @@ function AddExpenseModal({
                                 selectedAsset.description || "",
                               );
                               setIsBusiness(selectedAsset.is_business);
+                              if (selectedAsset.is_business) {
+                                setCategoryId(expense?.category_id || "");
+                              }
                               if (selectedAsset.category_id) {
                                 setAssetCategoryId(selectedAsset.category_id);
-                                setCategoryId(selectedAsset.category_id);
+                                if (!selectedAsset.is_business) {
+                                  setCategoryId(selectedAsset.category_id);
+                                }
                               } else {
-                                setCategoryId(investmentCategories[0]?.id || "");
+                                setCategoryId(
+                                  selectedAsset.is_business
+                                    ? businessCategories[0]?.id || ""
+                                    : investmentCategories[0]?.id || "",
+                                );
                               }
                               setIsAssetAccordionOpen(false);
                             }
@@ -819,18 +930,25 @@ function AddExpenseModal({
           )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {!isInvestment && (
+            {(!isInvestment || isBusinessInvestment) && (
               <div>
                 <label
                   className="mb-2 block text-xs font-semibold uppercase tracking-wide"
                   style={{ color: "rgba(226,255,232,0.5)" }}
                 >
-                  Danh mục
+                  {isBusinessInvestment ? "Danh mục rót vốn" : "Danh mục"}
                 </label>
                 <div className="relative">
                   <select
                     value={categoryId}
-                    onChange={(event) => setCategoryId(event.target.value)}
+                    onChange={(event) => {
+                      const nextCategoryId = event.target.value;
+                      if (nextCategoryId === "__new__") {
+                        openCreateBusinessCategoryModal();
+                        return;
+                      }
+                      setCategoryId(nextCategoryId);
+                    }}
                     disabled={isCategoryLocked}
                     style={{
                       ...inputStyle,
@@ -840,6 +958,15 @@ function AddExpenseModal({
                       opacity: isCategoryLocked ? 0.65 : 1,
                     }}
                   >
+                    {isBusinessInvestment && (
+                      <option
+                        disabled
+                        value=""
+                        style={{ background: "#0a1a0f" }}
+                      >
+                        {businessCategories.length === 0 ? "" : "Chọn danh mục"}
+                      </option>
+                    )}
                     {transactionCategories.map((category) => (
                       <option
                         key={category.id}
@@ -849,6 +976,18 @@ function AddExpenseModal({
                         {category.name}
                       </option>
                     ))}
+                    {isBusinessInvestment && (
+                      <option
+                        value="__new__"
+                        style={{
+                          background: "rgba(45,154,75,0.2)",
+                          color: "#aaf0be",
+                          fontWeight: 700,
+                        }}
+                      >
+                        + Tạo danh mục mới
+                      </option>
+                    )}
                   </select>
                   <ChevronDown
                     className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2"
@@ -926,7 +1065,7 @@ function AddExpenseModal({
       {isInvestment && showCreateAssetModal && (
         <ModalOverlay
           onClose={closeCreateAssetModal}
-          panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+          panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
           panelStyle={{
             background: "rgba(8,20,12,0.97)",
             border: "1px solid rgba(59,130,246,0.28)",
@@ -1032,7 +1171,12 @@ function AddExpenseModal({
               <div className="relative">
                 <select
                   value={assetCategoryId}
-                  onChange={(event) => setAssetCategoryId(event.target.value)}
+                  onChange={(event) => {
+                    setAssetCategoryId(event.target.value);
+                    if (!isBusiness) {
+                      setCategoryId(event.target.value);
+                    }
+                  }}
                   style={{
                     ...inputStyle,
                     paddingRight: "36px",
@@ -1082,7 +1226,11 @@ function AddExpenseModal({
                   onChange={(event) => {
                     const nextIsBusiness = event.target.checked;
                     setIsBusiness(nextIsBusiness);
-                    setCategoryId(assetCategoryId || investmentCategories[0]?.id || "");
+                    setCategoryId(
+                      nextIsBusiness
+                        ? businessCategories[0]?.id || ""
+                        : assetCategoryId || investmentCategories[0]?.id || "",
+                    );
                   }}
                   className="h-4 w-4 rounded border-primary/40 bg-transparent text-primary focus:ring-primary/20"
                 />
@@ -1090,10 +1238,7 @@ function AddExpenseModal({
               </label>
             </div>
 
-            <p
-              className="text-xs"
-              style={{ color: "rgba(226,255,232,0.45)" }}
-            >
+            <p className="text-xs" style={{ color: "rgba(226,255,232,0.45)" }}>
               Danh mục giao dịch sẽ tự lấy theo danh mục của khoản đầu tư.
             </p>
 
@@ -1116,6 +1261,121 @@ function AddExpenseModal({
               >
                 <Plus className="h-4 w-4" />
                 Lưu khoản đầu tư
+              </button>
+            </div>
+          </form>
+        </ModalOverlay>
+      )}
+
+      {isInvestment && showCreateBusinessCategoryModal && (
+        <ModalOverlay
+          onClose={closeCreateBusinessCategoryModal}
+          panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+          panelStyle={{
+            background: "rgba(8,20,12,0.97)",
+            border: "1px solid rgba(59,130,246,0.28)",
+            boxShadow: "0 -20px 60px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div
+              className="h-1 w-10 rounded-full"
+              style={{ background: "rgba(59,130,246,0.35)" }}
+            />
+          </div>
+
+          <div
+            className="flex items-center justify-between border-b px-6 py-4"
+            style={{ borderColor: "rgba(59,130,246,0.18)" }}
+          >
+            <div>
+              <h2 className="text-lg font-bold text-white">
+                Tạo danh mục rót vốn
+              </h2>
+              <p
+                className="mt-0.5 text-xs"
+                style={{ color: "rgba(191,219,254,0.75)" }}
+              >
+                Danh mục này sẽ dùng cho các khoản đầu tư business.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={closeCreateBusinessCategoryModal}
+              className="h-8 w-8 rounded-xl flex items-center justify-center transition-colors"
+              style={{
+                color: "rgba(191,219,254,0.8)",
+                background: "rgba(59,130,246,0.08)",
+              }}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <form
+            onSubmit={createBusinessCategory}
+            className="flex-1 space-y-4 overflow-y-auto p-6 custom-scrollbar"
+          >
+            {error && (
+              <div
+                className="rounded-xl px-4 py-3 text-sm"
+                style={{
+                  background: "rgba(239,68,68,0.1)",
+                  border: "1px solid rgba(239,68,68,0.3)",
+                  color: "#fca5a5",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            <div>
+              <label
+                className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "#bfdbfe" }}
+              >
+                Tên danh mục mới
+              </label>
+              <input
+                type="text"
+                value={newBusinessCategoryName}
+                onChange={(event) => {
+                  setNewBusinessCategoryName(event.target.value);
+                  if (error) setError("");
+                }}
+                placeholder="Ví dụ: Vận hành, Marketing, Mở rộng..."
+                maxLength={CATEGORY_NAME_MAX_LENGTH}
+                style={{
+                  ...inputStyle,
+                  border: "1px solid rgba(59,130,246,0.28)",
+                }}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={closeCreateBusinessCategoryModal}
+                className="rounded-xl border px-4 py-3 text-sm font-semibold"
+                style={{
+                  borderColor: "rgba(255,255,255,0.1)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "rgba(226,255,232,0.7)",
+                }}
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={newBusinessCategorySaving}
+                className="btn-primary inline-flex items-center gap-2"
+              >
+                {newBusinessCategorySaving ? (
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Lưu danh mục
               </button>
             </div>
           </form>
@@ -1179,7 +1439,11 @@ function ExpenseMobileCard({
   onToggleSelect,
   onDelete,
 }: {
-  expense: Expense & { category?: Category };
+  expense: Expense & {
+    category?: Category;
+    asset?: InvestmentAsset;
+    asset_id?: string | null;
+  };
   deleting: boolean;
   selected: boolean;
   amountColor: string;
@@ -1189,6 +1453,8 @@ function ExpenseMobileCard({
   onToggleSelect: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
 }) {
+  const displayCategory = expense.asset?.category || expense.category;
+
   return (
     <div
       className="rounded-2xl border p-4"
@@ -1222,8 +1488,8 @@ function ExpenseMobileCard({
         <div className="min-w-0 flex-1">
           <div className="flex items-start gap-3">
             <CategoryIcon
-              icon={expense.category?.icon || "circle"}
-              color={expense.category?.color || "#2D9A4B"}
+              icon={displayCategory?.icon || "circle"}
+              color={displayCategory?.color || "#2D9A4B"}
             />
 
             <div className="min-w-0 flex-1">
@@ -1252,16 +1518,16 @@ function ExpenseMobileCard({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            {expense.category ? (
+            {displayCategory ? (
               <span
                 className="inline-block max-w-full truncate whitespace-nowrap rounded-full px-2.5 py-1 text-xs"
                 style={{
-                  background: `${expense.category.color}18`,
-                  color: expense.category.color,
-                  border: `1px solid ${expense.category.color}30`,
+                  background: `${displayCategory.color}18`,
+                  color: displayCategory.color,
+                  border: `1px solid ${displayCategory.color}30`,
                 }}
               >
-                {expense.category.name}
+                {displayCategory.name}
               </span>
             ) : (
               <span
@@ -1311,25 +1577,38 @@ function ExpenseTableRow({
   amountColor,
   amountPrefix,
   categoryFallback,
+  showInvestmentAsset,
   onEdit,
   onToggleSelect,
   onDelete,
   isLast,
 }: {
-  expense: Expense & { category?: Category };
+  expense: Expense & {
+    category?: Category;
+    asset?: InvestmentAsset;
+    asset_id?: string | null;
+  };
   deleting: boolean;
   selected: boolean;
   amountColor: string;
   amountPrefix: string;
   categoryFallback: string;
+  showInvestmentAsset?: boolean;
   onEdit: (expense: Expense & { category?: Category }) => void;
   onToggleSelect: (expense: Expense) => void;
   onDelete: (expense: Expense) => void;
   isLast?: boolean;
 }) {
+  const displayCategory = expense.asset?.category || expense.category;
+
   return (
     <div
-      className="grid grid-cols-[44px_2.2fr_1fr_1.1fr_0.9fr_0.6fr] items-center gap-3 px-4 py-2.5"
+      className={cn(
+        "items-center gap-3 px-4 py-2.5",
+        showInvestmentAsset
+          ? "grid grid-cols-[44px_1.7fr_1.35fr_1fr_1.1fr_0.9fr_0.6fr]"
+          : "grid grid-cols-[44px_2.2fr_1fr_1.1fr_0.9fr_0.6fr]",
+      )}
       style={{
         borderBottom: isLast ? "none" : "1px solid rgba(45,154,75,0.06)",
       }}
@@ -1357,8 +1636,8 @@ function ExpenseTableRow({
 
       <div className="flex min-w-0 items-start gap-4">
         <CategoryIcon
-          icon={expense.category?.icon || "circle"}
-          color={expense.category?.color || "#2D9A4B"}
+          icon={displayCategory?.icon || "circle"}
+          color={displayCategory?.color || "#2D9A4B"}
         />
 
         <div className="min-w-0">
@@ -1377,16 +1656,16 @@ function ExpenseTableRow({
       </div>
 
       <div className="min-w-0">
-        {expense.category ? (
+        {displayCategory ? (
           <span
             className="inline-block max-w-full truncate whitespace-nowrap rounded-full px-2 py-0.5 text-[11px]"
             style={{
-              background: `${expense.category.color}18`,
-              color: expense.category.color,
-              border: `1px solid ${expense.category.color}30`,
+              background: `${displayCategory.color}18`,
+              color: displayCategory.color,
+              border: `1px solid ${displayCategory.color}30`,
             }}
           >
-            {expense.category.name}
+            {displayCategory.name}
           </span>
         ) : (
           <span className="text-xs" style={{ color: "rgba(226,255,232,0.32)" }}>
@@ -1394,6 +1673,14 @@ function ExpenseTableRow({
           </span>
         )}
       </div>
+
+      {showInvestmentAsset && (
+        <div className="min-w-0">
+          <p className="truncate text-sm text-white">
+            {expense.asset?.name || "Không có khoản đầu tư"}
+          </p>
+        </div>
+      )}
 
       <div
         className="flex items-center gap-1 text-xs"
@@ -2067,7 +2354,12 @@ export default function ExpensesClient({
                   className="min-h-0 flex-1 overflow-y-auto custom-scrollbar"
                 >
                   <div
-                    className="sticky top-0 z-10 grid grid-cols-[44px_2.2fr_1fr_1.1fr_0.9fr_0.6fr] gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wide"
+                    className={cn(
+                      "sticky top-0 z-10 gap-4 px-5 py-3 text-xs font-semibold uppercase tracking-wide",
+                      transactionType === "investment"
+                        ? "grid grid-cols-[44px_1.7fr_1fr_1.35fr_1.1fr_0.9fr_0.6fr]"
+                        : "grid grid-cols-[44px_2.2fr_1fr_1.1fr_0.9fr_0.6fr]",
+                    )}
                     style={{
                       color: "rgba(226,255,232,0.32)",
                       background: "rgba(10,20,13,0.96)",
@@ -2109,6 +2401,7 @@ export default function ExpensesClient({
                     </button>
                     <div>{config.tableColumnLabel}</div>
                     <div>Danh mục</div>
+                    {transactionType === "investment" && <div>Khoản đầu tư</div>}
                     <div>Ngày</div>
                     <div className="text-right">Số tiền</div>
                     <div className="text-right">Thao tác</div>
@@ -2123,6 +2416,7 @@ export default function ExpensesClient({
                       amountColor={config.amountColor}
                       amountPrefix={config.amountPrefix}
                       categoryFallback={config.categoryFallback}
+                      showInvestmentAsset={transactionType === "investment"}
                       isLast={
                         currentExpenses[currentExpenses.length - 1]?.id ===
                         expense.id

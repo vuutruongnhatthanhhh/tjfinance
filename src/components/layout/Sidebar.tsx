@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDownCircle,
@@ -79,6 +79,14 @@ export default function Sidebar({
   const router = useRouter();
   const [showAccountModal, setShowAccountModal] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const previousPathnameRef = useRef(pathname);
+
+  useEffect(() => {
+    if (previousPathnameRef.current !== pathname && isOpen) {
+      onClose();
+    }
+    previousPathnameRef.current = pathname;
+  }, [isOpen, onClose, pathname]);
 
   const openFeedbackModal = () => {
     setShowFeedbackModal(true);
@@ -95,6 +103,15 @@ export default function Sidebar({
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
+  };
+
+  const handleMobileNavigate = (href: string) => {
+    if (pathname === href || pathname.startsWith(`${href}/`)) {
+      onClose();
+      return;
+    }
+
+    router.push(href);
   };
 
   const userInitial = (userName || userEmail || "U")[0].toUpperCase();
@@ -144,7 +161,10 @@ export default function Sidebar({
             <Link
               key={item.href}
               href={item.href}
-              onClick={onClose}
+              onClick={(event) => {
+                event.preventDefault();
+                handleMobileNavigate(item.href);
+              }}
               className={cn("sidebar-item group", isActive && "active")}
             >
               <span className="flex-shrink-0">{item.icon}</span>

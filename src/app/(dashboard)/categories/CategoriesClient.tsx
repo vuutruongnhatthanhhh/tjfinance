@@ -239,7 +239,7 @@ function CategoryModal({
   return (
     <ModalOverlay
       onClose={onClose}
-      panelClassName="w-full sm:max-w-md max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
+      panelClassName="w-full sm:max-w-lg max-h-[90dvh] sm:max-h-[calc(100dvh-2rem)] rounded-t-3xl sm:rounded-2xl flex flex-col overflow-hidden"
       panelStyle={{
         background: "rgba(8,20,12,0.97)",
         border: "1px solid rgba(45,154,75,0.2)",
