@@ -1,6 +1,6 @@
 const facebookUrl = "https://www.facebook.com/profile.php?id=61591310680618";
 const youtubeUrl = "https://www.youtube.com/@TJFinance-00";
-const appUrl = "https://tjfinance.tjzenn.com";
+const appUrl = "https://tjfinance.vercel.app/";
 const logoUrl = `${appUrl}/icon.svg`;
 
 function renderEmailFooter(year: number): string {
