@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendMail } from "@/lib/mailer";
 import { renderPasswordResetEmailHTML } from "@/lib/emailTemplates";
+import { applyRateLimit, getRateLimitIp } from "@/lib/rateLimit";
+
+type RecoveryLinkResponse = {
+  properties?: {
+    hashed_token?: string | null;
+    token_hash?: string | null;
+    verification_type?: string | null;
+    type?: string | null;
+  } | null;
+  user?: {
+    user_metadata?: {
+      full_name?: string | null;
+    } | null;
+  } | null;
+};
 
 function createAdminClient() {
   return createClient(
@@ -32,12 +47,33 @@ export async function POST(req: NextRequest) {
 
   try {
     const { email } = await req.json();
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
 
     if (!email) {
       return NextResponse.json(
         { error: "Thiếu email cần khôi phục." },
         { status: 400 },
       );
+    }
+
+    const { response } = await applyRateLimit([
+      {
+        key: "auth-forgot-password-ip",
+        limit: 5,
+        window: "15 m",
+        identifier: getRateLimitIp(req),
+      },
+      {
+        key: "auth-forgot-password-email",
+        limit: 3,
+        window: "1 h",
+        identifier: normalizedEmail,
+      },
+    ]);
+
+    if (response) {
+      return response;
     }
 
     const supabase = createAdminClient();
@@ -50,7 +86,7 @@ export async function POST(req: NextRequest) {
       options: {
         redirectTo,
       },
-    } as any);
+    });
 
     if (error) {
       return NextResponse.json(
@@ -59,7 +95,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const linkData = data as any;
+    const linkData = data as RecoveryLinkResponse | null;
     const tokenHash =
       linkData?.properties?.hashed_token ||
       linkData?.properties?.token_hash ||

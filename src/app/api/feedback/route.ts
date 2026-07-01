@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail } from "@/lib/mailer";
 import { renderFeedbackEmailHTML } from "@/lib/emailTemplates";
+import { applyRateLimit, getRateLimitIp } from "@/lib/rateLimit";
 import { createClient } from "@/lib/supabase/server";
 
 const PHONE_MAX_LENGTH = 20;
@@ -63,6 +64,25 @@ export async function POST(req: NextRequest) {
         { error: "Nội dung góp ý quá dài." },
         { status: 400 },
       );
+    }
+
+    const { response } = await applyRateLimit([
+      {
+        key: "feedback-ip",
+        limit: 10,
+        window: "1 h",
+        identifier: getRateLimitIp(req),
+      },
+      {
+        key: "feedback-user",
+        limit: 5,
+        window: "1 h",
+        identifier: user.id,
+      },
+    ]);
+
+    if (response) {
+      return response;
     }
 
     await sendMail({

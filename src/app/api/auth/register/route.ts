@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "crypto";
 import { sendMail } from "@/lib/mailer";
 import { renderVerificationEmailHTML } from "@/lib/emailTemplates";
+import { applyRateLimit, getRateLimitIp } from "@/lib/rateLimit";
 
 // Dùng service role key để tạo user (server-side only)
 function createAdminClient() {
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const { email, password, fullName } = await req.json();
+    const normalizedEmail =
+      typeof email === "string" ? email.trim().toLowerCase() : "";
 
     if (!email || !password || !fullName) {
       return NextResponse.json(
@@ -48,6 +51,25 @@ export async function POST(req: NextRequest) {
         { error: "Mật khẩu phải có ít nhất 6 ký tự." },
         { status: 400 },
       );
+    }
+
+    const { response } = await applyRateLimit([
+      {
+        key: "auth-register-ip",
+        limit: 5,
+        window: "15 m",
+        identifier: getRateLimitIp(req),
+      },
+      {
+        key: "auth-register-email",
+        limit: 3,
+        window: "1 h",
+        identifier: normalizedEmail,
+      },
+    ]);
+
+    if (response) {
+      return response;
     }
 
     const supabase = createAdminClient();

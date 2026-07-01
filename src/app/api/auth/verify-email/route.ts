@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { applyRateLimit, getRateLimitIp } from "@/lib/rateLimit";
 
 function createAdminClient() {
   return createClient(
@@ -14,6 +15,19 @@ export async function GET(req: NextRequest) {
 
   if (!token) {
     return NextResponse.json({ error: "Token không hợp lệ." }, { status: 400 });
+  }
+
+  const { response } = await applyRateLimit([
+    {
+      key: "auth-verify-email-ip",
+      limit: 20,
+      window: "15 m",
+      identifier: getRateLimitIp(req),
+    },
+  ]);
+
+  if (response) {
+    return response;
   }
 
   const supabase = createAdminClient();
