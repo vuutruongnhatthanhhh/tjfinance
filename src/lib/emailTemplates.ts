@@ -61,8 +61,8 @@ export function renderVerificationEmailHTML({
               <img
                 src="${logoUrl}"
                 alt="TJFinance"
-                width="56"
-                height="56"
+                width="40"
+                height="40"
                 style="display:block; margin:0 auto;"
               />
             </a>
@@ -148,8 +148,8 @@ export function renderPasswordResetEmailHTML({
               <img
                 src="${logoUrl}"
                 alt="TJFinance"
-                width="56"
-                height="56"
+                width="40"
+                height="40"
                 style="display:block; margin:0 auto;"
               />
             </a>
@@ -250,8 +250,8 @@ export function renderFeedbackEmailHTML({
               <img
                 src="${logoUrl}"
                 alt="TJFinance"
-                width="56"
-                height="56"
+                width="40"
+                height="40"
                 style="display:block; margin:0 auto;"
               />
             </a>
