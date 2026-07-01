@@ -1,3 +1,25 @@
+const facebookUrl = "https://www.facebook.com/profile.php?id=61591310680618";
+const youtubeUrl = "https://www.youtube.com/@TJFinance-00";
+const appUrl = "https://tjfinance.tjzenn.com";
+const logoUrl = `${appUrl}/icon.svg`;
+
+function renderEmailFooter(year: number): string {
+  return `
+      <div style="font-size:12px; color:#9ca3af; text-align:center;">
+        <p style="margin:0 0 8px 0;">© ${year} TJFinance · Quản lý tài chính cá nhân</p>
+        <p style="margin:0; line-height:1.6;">
+          <a href="${facebookUrl}" target="_blank" rel="noopener noreferrer" style="color:#4b5563; text-decoration:none; margin:0 6px;">
+            Facebook
+          </a>
+          |
+          <a href="${youtubeUrl}" target="_blank" rel="noopener noreferrer" style="color:#4b5563; text-decoration:none; margin:0 6px;">
+            YouTube
+          </a>
+        </p>
+      </div>
+  `;
+}
+
 export function renderVerificationEmailHTML({
   fullName,
   verificationUrl,
@@ -27,20 +49,23 @@ export function renderVerificationEmailHTML({
       border:1px solid #e5e7eb;
     ">
 
-      <!-- LOGO -->
       <table role="presentation" width="100%" style="border-collapse:collapse; margin:0 0 16px 0;">
         <tr>
           <td align="center">
-            <div style="
-              display:inline-block;
-              background:linear-gradient(135deg,#2D9A4B,#1a7a35);
-              border-radius:10px;
-              padding:10px 18px;
-            ">
-              <span style="font-size:18px; font-weight:800; color:#ffffff; letter-spacing:-0.5px;">
-                TJFinance
-              </span>
-            </div>
+            <a
+              href="${appUrl}"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="display:inline-block;"
+            >
+              <img
+                src="${logoUrl}"
+                alt="TJFinance"
+                width="56"
+                height="56"
+                style="display:block; margin:0 auto;"
+              />
+            </a>
           </td>
         </tr>
       </table>
@@ -77,10 +102,7 @@ export function renderVerificationEmailHTML({
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
 
-      <div style="font-size:12px; color:#9ca3af; text-align:center;">
-        <p style="margin:0;">© ${year} TJFinance · Quản lý tài chính cá nhân</p>
-      </div>
-
+      ${renderEmailFooter(year)}
     </div>
   </body>
 </html>`;
@@ -117,16 +139,20 @@ export function renderPasswordResetEmailHTML({
       <table role="presentation" width="100%" style="border-collapse:collapse; margin:0 0 16px 0;">
         <tr>
           <td align="center">
-            <div style="
-              display:inline-block;
-              background:linear-gradient(135deg,#2D9A4B,#1a7a35);
-              border-radius:10px;
-              padding:10px 18px;
-            ">
-              <span style="font-size:18px; font-weight:800; color:#ffffff; letter-spacing:-0.5px;">
-                TJFinance
-              </span>
-            </div>
+            <a
+              href="${appUrl}"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="display:inline-block;"
+            >
+              <img
+                src="${logoUrl}"
+                alt="TJFinance"
+                width="56"
+                height="56"
+                style="display:block; margin:0 auto;"
+              />
+            </a>
           </td>
         </tr>
       </table>
@@ -163,9 +189,7 @@ export function renderPasswordResetEmailHTML({
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
 
-      <div style="font-size:12px; color:#9ca3af; text-align:center;">
-        <p style="margin:0;">© ${year} TJFinance · Quản lý tài chính cá nhân</p>
-      </div>
+      ${renderEmailFooter(year)}
     </div>
   </body>
 </html>`;
@@ -217,16 +241,20 @@ export function renderFeedbackEmailHTML({
       <table role="presentation" width="100%" style="border-collapse:collapse; margin:0 0 16px 0;">
         <tr>
           <td align="center">
-            <div style="
-              display:inline-block;
-              background:linear-gradient(135deg,#2D9A4B,#1a7a35);
-              border-radius:10px;
-              padding:10px 18px;
-            ">
-              <span style="font-size:18px; font-weight:800; color:#ffffff; letter-spacing:-0.5px;">
-                TJFinance
-              </span>
-            </div>
+            <a
+              href="${appUrl}"
+              target="_blank"
+              rel="noopener noreferrer"
+              style="display:inline-block;"
+            >
+              <img
+                src="${logoUrl}"
+                alt="TJFinance"
+                width="56"
+                height="56"
+                style="display:block; margin:0 auto;"
+              />
+            </a>
           </td>
         </tr>
       </table>
@@ -273,9 +301,7 @@ export function renderFeedbackEmailHTML({
 
       <hr style="border:none; border-top:1px solid #e5e7eb; margin:20px 0;" />
 
-      <div style="font-size:12px; color:#9ca3af; text-align:center;">
-        <p style="margin:0;">© ${year} TJFinance</p>
-      </div>
+      ${renderEmailFooter(year)}
     </div>
   </body>
 </html>`;

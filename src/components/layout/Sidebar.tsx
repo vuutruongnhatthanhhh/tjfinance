@@ -8,6 +8,7 @@ import {
   ArrowUpCircle,
   Banknote,
   ChevronRight,
+  Facebook,
   Landmark,
   LayoutDashboard,
   LogOut,
@@ -15,6 +16,7 @@ import {
   Tag,
   Wallet,
   X,
+  Youtube,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -59,6 +61,19 @@ const navItems: NavItem[] = [
     icon: <Tag className="h-5 w-5" />,
   },
 ];
+
+const socialLinks = [
+  {
+    href: "https://www.facebook.com/profile.php?id=61591310680618",
+    label: "Facebook",
+    icon: <Facebook className="h-4 w-4" />,
+  },
+  {
+    href: "https://www.youtube.com/@TJFinance-00",
+    label: "YouTube",
+    icon: <Youtube className="h-4 w-4" />,
+  },
+] as const;
 
 interface SidebarProps {
   isOpen: boolean;
@@ -179,6 +194,25 @@ export default function Sidebar({
         className="space-y-3 border-t px-3 py-4"
         style={{ borderColor: "rgba(45,154,75,0.15)" }}
       >
+        <div className="flex items-center gap-2 px-1">
+          {socialLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={item.label}
+              className="flex h-9 w-9 items-center justify-center rounded-full border text-[rgba(226,255,232,0.72)] transition-all duration-200 hover:-translate-y-0.5 hover:text-white"
+              style={{
+                borderColor: "rgba(45,154,75,0.18)",
+                background: "rgba(45,154,75,0.06)",
+              }}
+            >
+              {item.icon}
+            </Link>
+          ))}
+        </div>
+
         <div
           className="rounded-xl px-4 py-3"
           role="button"
@@ -307,6 +341,25 @@ export default function Sidebar({
             className="space-y-2 border-t px-2 py-4"
             style={{ borderColor: "rgba(45,154,75,0.15)" }}
           >
+            <div className="hidden items-center gap-2 px-1 group-hover/sidebar:flex">
+              {socialLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={item.label}
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border text-[rgba(226,255,232,0.72)] transition-all duration-300 hover:-translate-y-0.5 hover:text-white"
+                  style={{
+                    borderColor: "rgba(45,154,75,0.18)",
+                    background: "rgba(45,154,75,0.06)",
+                  }}
+                >
+                  {item.icon}
+                </Link>
+              ))}
+            </div>
+
             <div
               className="overflow-hidden rounded-xl"
               role="button"
