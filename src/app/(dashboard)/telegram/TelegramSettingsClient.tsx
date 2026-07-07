@@ -22,6 +22,28 @@ interface TelegramSettingsState {
   deepLink: string | null;
 }
 
+const HELP_LINES = [
+  "Các lệnh hỗ trợ:",
+  "/start <token> - Liên kết bot với tài khoản TJFinance",
+  "/expense dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu",
+  "/income dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu",
+  "/investment dd/mm/yyyy so_tien | ten_khoan_dau_tu | danh_muc | ten_giao_dich | ghi_chu",
+  "/list <all|expense|income|investment> <today|week|month|year>",
+  "/delete <expense|income|investment> <id-prefix>",
+  "/categories <all|expense|income|investment|asset>",
+  "/help - Xem hướng dẫn",
+  "",
+  "Ví dụ:",
+  "/expense 07/07/2026 45000 | Ăn uống | Cà phê sáng | gặp khách",
+  "/income 07/07/2026 15000000 | Lương | Lương tháng 7",
+  "/investment 07/07/2026 2000000 | Quỹ VCBF | Cổ phiếu | Mua thêm tháng 7",
+  "/list all month",
+  "/delete expense ab12cd34",
+  "/categories all",
+  "",
+  "Lưu ý: lệnh /investment hiện hỗ trợ tạo nhanh khoản đầu tư thường, không dùng cho khoản business.",
+];
+
 function formatDateTime(value: string | null) {
   if (!value) {
     return "Chưa có";
@@ -257,20 +279,22 @@ export default function TelegramSettingsClient({
                   </a>
                 ) : null}
 
-                <button
-                  type="button"
-                  onClick={handleDisconnect}
-                  disabled={isPending}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                  style={{
-                    borderColor: "rgba(248,113,113,0.18)",
-                    background: "rgba(127,29,29,0.15)",
-                    color: "#fca5a5",
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  Ngắt kết nối
-                </button>
+                {integration.telegramEnabled ? (
+                  <button
+                    type="button"
+                    onClick={handleDisconnect}
+                    disabled={isPending}
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{
+                      borderColor: "rgba(248,113,113,0.18)",
+                      background: "rgba(127,29,29,0.15)",
+                      color: "#fca5a5",
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Ngắt kết nối
+                  </button>
+                ) : null}
               </div>
             </div>
 
@@ -324,49 +348,17 @@ export default function TelegramSettingsClient({
             >
               <h2 className="text-lg font-bold text-white">Lệnh hỗ trợ</h2>
               <div
-                className="mt-4 space-y-3 text-sm"
-                style={{ color: "rgba(226,255,232,0.72)" }}
+                className="mt-4 rounded-2xl border p-4 text-sm"
+                style={{
+                  borderColor: "rgba(45,154,75,0.12)",
+                  background: "rgba(5,13,8,0.56)",
+                  color: "#d9fbe3",
+                }}
               >
-                <p>/expense dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu</p>
-                <p>/income dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu</p>
-                <p>/investment dd/mm/yyyy so_tien | ten_khoan_dau_tu | danh_muc | ten_giao_dich | ghi_chu</p>
-                <p>/list all month hoặc /list expense week</p>
-                <p>/delete expense ab12cd34</p>
-                <p>/categories all</p>
-                <p>/categories expense</p>
-                <p>/categories income</p>
-                <p>/categories investment</p>
-                <p>/categories asset</p>
+                <pre className="whitespace-pre-wrap font-inherit leading-7">
+                  {HELP_LINES.join("\n")}
+                </pre>
               </div>
-            </div>
-          </section>
-
-          <section
-            className="rounded-3xl border p-5 sm:p-6"
-            style={{
-              borderColor: "rgba(45,154,75,0.14)",
-              background: "rgba(8,20,12,0.9)",
-            }}
-          >
-            <h2 className="text-lg font-bold text-white">Ví dụ nhanh</h2>
-            <div
-              className="mt-4 space-y-3 rounded-2xl border p-4 text-sm"
-              style={{
-                borderColor: "rgba(45,154,75,0.12)",
-                background: "rgba(5,13,8,0.56)",
-                color: "#d9fbe3",
-              }}
-            >
-              <p>/expense 07/07/2026 45000 | Ăn uống | Cà phê sáng | gặp khách</p>
-              <p>/income 07/07/2026 15000000 | Lương | Lương tháng 7</p>
-              <p>/investment 07/07/2026 2000000 | Quỹ VCBF | Cổ phiếu | Mua thêm tháng 7</p>
-              <p>/list all month</p>
-              <p>/delete expense ab12cd34</p>
-              <p>/categories all</p>
-              <p>/categories expense</p>
-              <p>/categories income</p>
-              <p>/categories investment</p>
-              <p>/categories asset</p>
             </div>
           </section>
         </div>

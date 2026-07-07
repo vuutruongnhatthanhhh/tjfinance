@@ -647,8 +647,12 @@ export async function listTelegramTransactions({
   const supabase = createAdminClient();
   const range = buildListRange(filter.range);
   const sections: string[] = [];
-  let grandTotal = 0;
   let grandCount = 0;
+  const totalsByType: Record<TransactionCommandType, number> = {
+    expense: 0,
+    income: 0,
+    investment: 0,
+  };
   const types: TransactionCommandType[] =
     filter.type === "all"
       ? ["expense", "income", "investment"]
@@ -678,8 +682,8 @@ export async function listTelegramTransactions({
     const items = ((data || []) as unknown) as TransactionListRow[];
     const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
 
-    grandTotal += total;
     grandCount += items.length;
+    totalsByType[type] = total;
 
     if (filter.type !== "all" || items.length > 0) {
       sections.push(
@@ -714,7 +718,12 @@ export async function listTelegramTransactions({
       `Danh sách ${getTypeLabel(filter.type)} ${getRangeLabel(filter.range)} (${formatVietnameseDate(range.start)} - ${formatVietnameseDate(range.end)}):`,
       ...sections,
       ...(filter.type === "all"
-        ? [`TỔNG CỘNG: ${grandCount} mục - ${formatCurrency(grandTotal)} đ`]
+        ? [
+            `CÒN LẠI: ${formatCurrency(
+              totalsByType.income -
+                (totalsByType.expense + totalsByType.investment),
+            )} đ`,
+          ]
         : []),
     ].join("\n\n"),
   };

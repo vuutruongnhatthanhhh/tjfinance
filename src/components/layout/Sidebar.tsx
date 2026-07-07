@@ -117,6 +117,7 @@ export default function Sidebar({
   useEffect(() => {
     router.prefetch("/investments");
     router.prefetch("/investment-portfolio");
+    router.prefetch("/telegram");
   }, [router]);
 
   const handleLogout = async () => {
