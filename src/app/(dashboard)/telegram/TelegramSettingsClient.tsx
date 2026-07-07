@@ -22,6 +22,8 @@ interface TelegramSettingsState {
   deepLink: string | null;
 }
 
+const TELEGRAM_GUIDE_URL = "https://example.com";
+
 const HELP_LINES = [
   "Các lệnh hỗ trợ:",
   "/start <token> - Liên kết bot với tài khoản TJFinance",
@@ -337,6 +339,20 @@ export default function TelegramSettingsClient({
                 <li>3. Gửi `/start &lt;token&gt;` hoặc mở deep link để bot tự điền token.</li>
                 <li>4. Khi bot báo liên kết thành công là có thể dùng lệnh ngay.</li>
               </ol>
+              <a
+                href={TELEGRAM_GUIDE_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-5 inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition-colors"
+                style={{
+                  borderColor: "rgba(45,154,75,0.22)",
+                  background: "rgba(45,154,75,0.08)",
+                  color: "#d9fbe3",
+                }}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Xem hướng dẫn chi tiết
+              </a>
             </div>
 
             <div

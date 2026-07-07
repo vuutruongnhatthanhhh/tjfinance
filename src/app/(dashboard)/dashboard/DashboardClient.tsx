@@ -42,6 +42,75 @@ const CATEGORY_COLORS = [
   "#eab308",
 ];
 
+const CATEGORY_ICON_MAP: Record<string, string> = {
+  utensils: "🍽️",
+  pizza: "🍕",
+  burger: "🍔",
+  coffee: "☕",
+  boba: "🧋",
+  noodle: "🍜",
+  sushi: "🍱",
+  cake: "🍰",
+  salad: "🥗",
+  beer: "🍺",
+  car: "🚗",
+  motorbike: "🏍️",
+  bus: "🚌",
+  taxi: "🚕",
+  plane: "✈️",
+  train: "🚂",
+  ship: "🚢",
+  fuel: "⛽",
+  "shopping-bag": "🛍️",
+  cart: "🛒",
+  clothes: "👗",
+  shoes: "👟",
+  cosmetic: "💄",
+  ring: "💍",
+  "heart-pulse": "❤️‍🔥",
+  pill: "💊",
+  hospital: "🏥",
+  gym: "🏋️",
+  yoga: "🧘",
+  dental: "🦷",
+  "book-open": "📚",
+  graduation: "🎓",
+  pencil: "✏️",
+  laptop: "💻",
+  phone: "📱",
+  "gamepad-2": "🎮",
+  movie: "🎬",
+  music: "🎵",
+  sport: "⚽",
+  travel: "🏖️",
+  camping: "🏕️",
+  reading: "📖",
+  home: "🏠",
+  furniture: "🛋️",
+  repair: "🔧",
+  electric: "💡",
+  water: "💧",
+  cleaning: "🧹",
+  receipt: "🧾",
+  "trending-up": "📈",
+  money: "💰",
+  card: "💳",
+  bank: "🏦",
+  tax: "📋",
+  briefcase: "💼",
+  gift: "🎁",
+  birthday: "🎂",
+  family: "👨‍👩‍👧",
+  pet: "🐾",
+  charity: "❤️",
+  star: "⭐",
+  key: "🔑",
+  map: "🗺️",
+  "plus-circle": "➕",
+  "more-horizontal": "⋯",
+  circle: "⚪",
+};
+
 function getGreeting() {
   const hour = new Date().getHours();
   if (hour < 12) return "Chào buổi sáng";
@@ -407,7 +476,7 @@ export default function DashboardClient({
                         color: expense.category?.color || "#2D9A4B",
                       }}
                     >
-                      {expense.category?.name?.[0]?.toUpperCase() || "?"}
+                      {CATEGORY_ICON_MAP[expense.category?.icon || ""] || "💰"}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-gray-900 dark:text-white">
