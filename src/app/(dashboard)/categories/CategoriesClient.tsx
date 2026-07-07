@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, Tag, X, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -164,7 +164,7 @@ interface CategoryModalProps {
     | "business"
     | "investment_return";
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedCategory: Category) => void;
 }
 
 function CategoryModal({
@@ -208,11 +208,18 @@ function CategoryModal({
 
     const payload = { name: trimmedName, icon, color, type };
 
-    const { error: dbError } = isEdit
-      ? await supabase.from("categories").update(payload).eq("id", category!.id)
+    const { data: savedCategory, error: dbError } = isEdit
+      ? await supabase
+          .from("categories")
+          .update(payload)
+          .eq("id", category!.id)
+          .select("*")
+          .single()
       : await supabase
           .from("categories")
-          .insert({ ...payload, user_id: userId });
+          .insert({ ...payload, user_id: userId })
+          .select("*")
+          .single();
 
     if (dbError) {
       setError("Có lỗi xảy ra. Vui lòng thử lại.");
@@ -221,7 +228,7 @@ function CategoryModal({
     }
 
     showToast(isEdit ? "Chỉnh sửa thành công" : "Tạo mới thành công");
-    onSuccess();
+    onSuccess(savedCategory as Category);
     onClose();
   };
 
@@ -519,11 +526,16 @@ export default function CategoriesClient({
   const onMenuToggle = useSidebarToggle();
   const [showModal, setShowModal] = useState(false);
   const [editCategory, setEditCategory] = useState<Category | undefined>();
+  const [categories, setCategories] = useState(initialCategories);
   const [activeTab, setActiveTab] = useState<
     "expense" | "income" | "investment" | "business" | "investment_return"
   >("expense");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setCategories(initialCategories);
+  }, [initialCategories]);
 
   const handleDelete = async (id: string, name: string) => {
     if (expenseCounts[id] > 0) {
@@ -544,18 +556,19 @@ export default function CategoriesClient({
     setDeleteId(id);
     const supabase = createClient();
     await supabase.from("categories").delete().eq("id", id);
+    setCategories((current) => current.filter((category) => category.id !== id));
     startTransition(() => router.refresh());
     setDeleteId(null);
   };
 
-  const filtered = initialCategories.filter((c) => c.type === activeTab);
+  const filtered = categories.filter((c) => c.type === activeTab);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Header
         onMenuToggle={onMenuToggle}
         title="Danh mục"
-        subtitle={`${initialCategories.length} danh mục`}
+        subtitle={`${categories.length} danh mục`}
       />
 
       <div
@@ -628,7 +641,7 @@ export default function CategoriesClient({
               >
                 <span className="block text-center">{cfg.label}</span>
                 <span className="mt-0.5 block text-center text-[11px] opacity-70">
-                  ({initialCategories.filter((c) => c.type === tab).length})
+                  ({categories.filter((c) => c.type === tab).length})
                 </span>
               </button>
             );
@@ -765,7 +778,22 @@ export default function CategoriesClient({
           category={editCategory}
           initialType={activeTab}
           onClose={() => setShowModal(false)}
-          onSuccess={() => startTransition(() => router.refresh())}
+          onSuccess={(savedCategory) => {
+            setCategories((current) => {
+              const exists = current.some(
+                (category) => category.id === savedCategory.id,
+              );
+
+              if (exists) {
+                return current.map((category) =>
+                  category.id === savedCategory.id ? savedCategory : category,
+                );
+              }
+
+              return [...current, savedCategory];
+            });
+            startTransition(() => router.refresh());
+          }}
         />
       )}
     </div>

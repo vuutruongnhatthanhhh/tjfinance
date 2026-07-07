@@ -1,7 +1,3 @@
-"use client";
-
-import { useState } from "react";
-
 interface Particle {
   id: number;
   x: number;
@@ -10,19 +6,39 @@ interface Particle {
   delay: number;
 }
 
-function generateParticles() {
-  return Array.from({ length: 20 }, (_, i) => ({
-    id: i,
-    x: Math.random() * 100,
-    size: Math.random() * 4 + 1,
-    duration: Math.random() * 15 + 10,
-    // Negative delay makes each particle appear mid-flight immediately.
-    delay: -Math.random() * 10,
-  }));
+function createSeededRandom(seed: number) {
+  let value = seed % 2147483647;
+
+  if (value <= 0) {
+    value += 2147483646;
+  }
+
+  return () => {
+    value = (value * 16807) % 2147483647;
+    return (value - 1) / 2147483646;
+  };
 }
 
+function generateParticles(): Particle[] {
+  const random = createSeededRandom(20260707);
+
+  return Array.from({ length: 20 }, (_, i) => {
+    const size = random() * 4 + 1;
+
+    return {
+      id: i,
+      x: random() * 100,
+      size,
+      duration: random() * 15 + 10,
+      // Negative delay makes each particle appear mid-flight immediately.
+      delay: -random() * 10,
+    };
+  });
+}
+
+const particles = generateParticles();
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  const [particles] = useState<Particle[]>(() => generateParticles());
 
   return (
     <div className="min-h-screen relative overflow-hidden bg-mystic-dark dark:bg-mystic-dark">

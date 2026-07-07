@@ -21,39 +21,49 @@ import type { InvestmentAssetSummary } from "./page";
 
 interface InvestmentPortfolioClientProps {
   summaries: InvestmentAssetSummary[];
-  overallInvested: number;
-  overallCurrent: number;
-  overallReturned: number;
 }
 
 export default function InvestmentPortfolioClient({
   summaries,
-  overallInvested,
-  overallCurrent,
-  overallReturned,
 }: InvestmentPortfolioClientProps) {
   const onMenuToggle = useSidebarToggle();
   const { showToast } = useToast();
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [currentSummaries, setCurrentSummaries] = useState(summaries);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-  const overallProfitLoss = summaries.reduce(
+  const currentOverallInvested = currentSummaries
+    .filter((summary) => !summary.asset.is_business)
+    .reduce((sum, summary) => sum + summary.totalInvested, 0);
+  const currentOverallCurrent = currentSummaries
+    .filter((summary) => !summary.asset.is_business)
+    .reduce((sum, summary) => sum + summary.currentValue, 0);
+  const currentOverallReturned = currentSummaries
+    .filter((summary) => summary.asset.is_business)
+    .reduce((sum, summary) => sum + summary.totalReturned, 0);
+  const overallProfitLoss = currentSummaries.reduce(
     (sum, summary) =>
       summary.asset.is_business ? sum : sum + summary.profitLossAmount,
     0,
   );
   const overallProfitLossPercent =
-    overallInvested > 0 ? (overallProfitLoss / overallInvested) * 100 : 0;
+    currentOverallInvested > 0
+      ? (overallProfitLoss / currentOverallInvested) * 100
+      : 0;
   const overallProfitLossColor =
     overallProfitLoss > 0
       ? "#4ade80"
       : overallProfitLoss < 0
         ? "#f87171"
         : undefined;
-  const selectedSummaries = summaries.filter((summary) =>
+  const selectedSummaries = currentSummaries.filter((summary) =>
     selectedAssetIds.includes(summary.asset.id),
   );
+
+  useEffect(() => {
+    setCurrentSummaries(summaries);
+  }, [summaries]);
 
   useEffect(() => {
     router.prefetch("/investments");
@@ -61,9 +71,11 @@ export default function InvestmentPortfolioClient({
 
   useEffect(() => {
     setSelectedAssetIds((current) =>
-      current.filter((id) => summaries.some((summary) => summary.asset.id === id)),
+      current.filter((id) =>
+        currentSummaries.some((summary) => summary.asset.id === id),
+      ),
     );
-  }, [summaries]);
+  }, [currentSummaries]);
 
   const toggleSelection = (assetId: string) => {
     setSelectedAssetIds((current) =>
@@ -109,6 +121,9 @@ export default function InvestmentPortfolioClient({
     }
 
     showToast("Xóa khoản đầu tư thành công");
+    setCurrentSummaries((current) =>
+      current.filter((item) => item.asset.id !== summary.asset.id),
+    );
     setDeletingAssetId(null);
     startTransition(() => router.refresh());
   };
@@ -159,6 +174,9 @@ export default function InvestmentPortfolioClient({
     }
 
     setSelectedAssetIds([]);
+    setCurrentSummaries((current) =>
+      current.filter((summary) => !assetIds.includes(summary.asset.id)),
+    );
     showToast("Xóa khoản đầu tư thành công");
     setDeletingAssetId(null);
     startTransition(() => router.refresh());
@@ -169,7 +187,7 @@ export default function InvestmentPortfolioClient({
       <Header
         onMenuToggle={onMenuToggle}
         title="Danh mục đầu tư"
-        subtitle={`${summaries.length} khoản đầu tư`}
+        subtitle={`${currentSummaries.length} khoản đầu tư`}
       />
 
       <div
@@ -221,21 +239,21 @@ export default function InvestmentPortfolioClient({
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             title="Tổng vốn đầu tư"
-            value={formatCurrency(overallInvested)}
+            value={formatCurrency(currentOverallInvested)}
             subtitle="Tổng tiền đã bỏ vào"
             icon={<PiggyBank className="h-6 w-6" />}
             color="blue"
           />
           <StatCard
             title="Tổng giá trị hiện tại"
-            value={formatCurrency(overallCurrent)}
+            value={formatCurrency(currentOverallCurrent)}
             subtitle="Theo cập nhật mới nhất"
             icon={<Wallet className="h-6 w-6" />}
             color="green"
           />
           <StatCard
             title="Tiền đã thu về"
-            value={formatCurrency(overallReturned)}
+            value={formatCurrency(currentOverallReturned)}
             subtitle="Dành cho khoản business"
             icon={<Landmark className="h-6 w-6" />}
             color="purple"
@@ -256,9 +274,9 @@ export default function InvestmentPortfolioClient({
           />
         </div>
 
-        {summaries.length > 0 ? (
+        {currentSummaries.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-            {summaries.map((summary) => {
+            {currentSummaries.map((summary) => {
               const isPositive = summary.profitLossAmount >= 0;
               const selected = selectedAssetIds.includes(summary.asset.id);
 

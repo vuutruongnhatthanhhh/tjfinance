@@ -92,28 +92,5 @@ export default async function InvestmentPortfolioPage() {
     };
   });
 
-  const nonBusinessSummaries = summaries.filter((item) => !item.asset.is_business);
-  const businessSummaries = summaries.filter((item) => item.asset.is_business);
-
-  const investmentOnlyOverallInvested = nonBusinessSummaries.reduce(
-    (sum, item) => sum + item.totalInvested,
-    0,
-  );
-  const investmentOnlyOverallCurrent = nonBusinessSummaries.reduce(
-    (sum, item) => sum + item.currentValue,
-    0,
-  );
-  const businessOnlyOverallReturned = businessSummaries.reduce(
-    (sum, item) => sum + item.totalReturned,
-    0,
-  );
-
-  return (
-    <InvestmentPortfolioClient
-      summaries={summaries}
-      overallInvested={investmentOnlyOverallInvested}
-      overallCurrent={investmentOnlyOverallCurrent}
-      overallReturned={businessOnlyOverallReturned}
-    />
-  );
+  return <InvestmentPortfolioClient summaries={summaries} />;
 }

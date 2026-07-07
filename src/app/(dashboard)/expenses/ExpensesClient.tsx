@@ -50,6 +50,12 @@ interface ExpensesClientProps {
   transactionType?: TransactionType;
 }
 
+type ExpenseListItem = Expense & {
+  category?: Category;
+  asset?: InvestmentAsset;
+  asset_id?: string | null;
+};
+
 const ICON_MAP: Record<string, string> = {
   utensils: "🍽️",
   pizza: "🍕",
@@ -238,10 +244,10 @@ function AddExpenseModal({
   categories: Category[];
   investmentAssets?: InvestmentAsset[];
   userId: string;
-  expense?: Expense & { asset?: InvestmentAsset; asset_id?: string | null };
+  expense?: ExpenseListItem;
   transactionType: TransactionType;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (savedExpense: ExpenseListItem) => void;
 }) {
   const config = TRANSACTION_CONFIG[transactionType];
   const tableName = getTransactionTableName(transactionType);
@@ -470,6 +476,7 @@ function AddExpenseModal({
     setLoading(true);
     const supabase = createClient();
     let assetId = expense?.asset_id || null;
+    let resolvedAsset = expense?.asset;
 
     if (isInvestment) {
       if (!selectedAssetId && !hasNewAssetDraft) {
@@ -508,6 +515,21 @@ function AddExpenseModal({
           }
 
           assetId = expense.asset_id;
+          resolvedAsset = {
+            ...(expense.asset || {}),
+            id: expense.asset_id,
+            user_id: userId,
+            category_id: assetCategoryId || null,
+            name: assetName.trim(),
+            description: assetDescription.trim() || null,
+            is_business: isBusiness,
+            started_at: date,
+            created_at: expense.asset?.created_at || expense.created_at,
+            updated_at: new Date().toISOString(),
+            category:
+              allCategories.find((category) => category.id === assetCategoryId) ||
+              expense.asset?.category,
+          } as InvestmentAsset;
         } else {
           const { data: createdAsset, error: assetInsertError } = await supabase
             .from("investment_assets")
@@ -529,9 +551,26 @@ function AddExpenseModal({
           }
 
           assetId = createdAsset.id;
+          resolvedAsset = {
+            id: createdAsset.id,
+            user_id: userId,
+            category_id: assetCategoryId || null,
+            name: assetName.trim(),
+            description: assetDescription.trim() || null,
+            is_business: isBusiness,
+            started_at: date,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            category:
+              allCategories.find((category) => category.id === assetCategoryId) ||
+              undefined,
+          };
         }
       } else {
         assetId = selectedAssetId;
+        resolvedAsset =
+          investmentAssets.find((item) => item.id === selectedAssetId) ||
+          expense?.asset;
       }
 
       if (isBusinessInvestment && !categoryId) {
@@ -567,8 +606,26 @@ function AddExpenseModal({
       return;
     }
 
+    const resolvedCategory = allCategories.find(
+      (category) => category.id === resolvedCategoryId,
+    );
+    const timestamp = new Date().toISOString();
+
     showToast(isEdit ? "Chỉnh sửa thành công" : "Tạo mới thành công");
-    onSuccess();
+    onSuccess({
+      id: expense?.id || crypto.randomUUID(),
+      user_id: userId,
+      category_id: resolvedCategoryId || "",
+      amount: amountNumber,
+      description,
+      note: note || null,
+      date,
+      created_at: expense?.created_at || timestamp,
+      updated_at: timestamp,
+      category: resolvedCategory,
+      asset: resolvedAsset,
+      asset_id: assetId,
+    });
     onClose();
   };
 
@@ -1771,14 +1828,10 @@ export default function ExpensesClient({
   const desktopTableRef = useRef<HTMLDivElement | null>(null);
   const desktopTableScrollRef = useRef<HTMLDivElement | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [editExpense, setEditExpense] = useState<
-    | (Expense & {
-        category?: Category;
-        asset?: InvestmentAsset;
-        asset_id?: string | null;
-      })
-    | undefined
-  >();
+  const [editExpense, setEditExpense] = useState<ExpenseListItem | undefined>();
+  const [currentExpenses, setCurrentExpenses] =
+    useState<ExpenseListItem[]>(initialExpenses);
+  const [currentTotalCount, setCurrentTotalCount] = useState(totalCount);
   const [searchInput, setSearchInput] = useState(searchQuery);
   const [selectedCategory, setSelectedCategory] = useState(
     filterCategory || "all",
@@ -1794,6 +1847,14 @@ export default function ExpensesClient({
       router.prefetch("/investment-portfolio");
     }
   }, [router, transactionType]);
+
+  useEffect(() => {
+    setCurrentExpenses(initialExpenses);
+  }, [initialExpenses]);
+
+  useEffect(() => {
+    setCurrentTotalCount(totalCount);
+  }, [totalCount]);
 
   useEffect(() => {
     setSearchInput(searchQuery);
@@ -1814,10 +1875,10 @@ export default function ExpensesClient({
   useEffect(() => {
     setSelectedExpenseIds((current) =>
       current.filter((id) =>
-        initialExpenses.some((expense) => expense.id === id),
+        currentExpenses.some((expense) => expense.id === id),
       ),
     );
-  }, [initialExpenses]);
+  }, [currentExpenses]);
 
   const buildUrl = useCallback(
     (updates: Record<string, string | number | undefined>) => {
@@ -1858,7 +1919,7 @@ export default function ExpensesClient({
     [buildUrl, router],
   );
 
-  const handleEdit = (expense: Expense & { category?: Category }) => {
+  const handleEdit = (expense: ExpenseListItem) => {
     setEditExpense(expense);
     setShowModal(true);
   };
@@ -1900,6 +1961,15 @@ export default function ExpensesClient({
       return;
     }
 
+    setCurrentExpenses((current) =>
+      current.filter(
+        (expense) =>
+          !expensesToDelete.some((item) => item.id === expense.id),
+      ),
+    );
+    setCurrentTotalCount((current) =>
+      Math.max(0, current - expensesToDelete.length),
+    );
     clearExpenseSelection();
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
@@ -1921,12 +1991,14 @@ export default function ExpensesClient({
       setDeleteId(null);
       return;
     }
+    setCurrentExpenses((current) =>
+      current.filter((item) => item.id !== expense.id),
+    );
+    setCurrentTotalCount((current) => Math.max(0, current - 1));
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
     setDeleteId(null);
   };
-
-  const currentExpenses = initialExpenses;
   const selectedExpenses = currentExpenses.filter((expense) =>
     selectedExpenseIds.includes(expense.id),
   );
@@ -1951,7 +2023,7 @@ export default function ExpensesClient({
     Number(Boolean(selectedDateTo));
   const hasActiveFilters = activeFilterCount > 0;
   const showTotalAmount = hasActiveFilters && !isPending;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const totalPages = Math.max(1, Math.ceil(currentTotalCount / pageSize));
   const currentCategories = categories.filter(
     (category) => category.type === transactionType,
   );
@@ -2207,7 +2279,7 @@ export default function ExpensesClient({
                   className="text-xs"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  {totalCount} {config.itemLabelPlural}
+                  {currentTotalCount} {config.itemLabelPlural}
                 </p>
 
                 {showTotalAmount && (
@@ -2603,7 +2675,55 @@ export default function ExpensesClient({
           expense={editExpense}
           transactionType={transactionType}
           onClose={() => setShowModal(false)}
-          onSuccess={() => startTransition(() => router.refresh())}
+          onSuccess={(savedExpense) => {
+            const matchesCategory =
+              selectedCategory === "all" ||
+              savedExpense.category_id === selectedCategory;
+            const matchesFrom =
+              !selectedDateFrom || savedExpense.date >= selectedDateFrom;
+            const matchesTo =
+              !selectedDateTo || savedExpense.date <= selectedDateTo;
+            const normalizedSearch = searchInput.trim().toLowerCase();
+            const matchesSearch =
+              !normalizedSearch ||
+              savedExpense.description.toLowerCase().includes(normalizedSearch) ||
+              (savedExpense.note || "")
+                .toLowerCase()
+                .includes(normalizedSearch);
+            const matchesCurrentFilters =
+              matchesCategory && matchesFrom && matchesTo && matchesSearch;
+
+            setCurrentExpenses((current) => {
+              const existingIndex = current.findIndex(
+                (expense) => expense.id === savedExpense.id,
+              );
+
+              if (existingIndex >= 0) {
+                if (!matchesCurrentFilters) {
+                  return current.filter(
+                    (expense) => expense.id !== savedExpense.id,
+                  );
+                }
+
+                const next = [...current];
+                next[existingIndex] = savedExpense;
+                return next;
+              }
+
+              if (!matchesCurrentFilters || currentPage !== 1) {
+                return current;
+              }
+
+              return [savedExpense, ...current].slice(0, pageSize);
+            });
+
+            if (!editExpense && matchesCurrentFilters && currentPage === 1) {
+              setCurrentTotalCount((current) => current + 1);
+            }
+
+            setEditExpense(undefined);
+            startTransition(() => router.refresh());
+          }}
         />
       )}
     </div>
