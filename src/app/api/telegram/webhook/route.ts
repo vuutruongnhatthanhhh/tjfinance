@@ -4,10 +4,12 @@ import {
   buildTelegramHelpMessage,
   createTelegramInvestment,
   createTelegramTransaction,
+  deleteTelegramTransaction,
   linkTelegramAccount,
   listTelegramCategories,
   listTelegramTransactions,
   parseCategoryListCommand,
+  parseDeleteCommand,
   parseExpenseCommand,
   parseIncomeCommand,
   parseInvestmentCommand,
@@ -195,6 +197,29 @@ export async function POST(request: Request) {
       const result = await listTelegramCategories({
         chatId,
         filter: parsed,
+      });
+      await replyToTelegram(chatId, result.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (command === "/delete") {
+      const parsed = parseDeleteCommand(rawArgs);
+
+      if (!parsed) {
+        await replyToTelegram(
+          chatId,
+          [
+            "CĂº phĂ¡p chÆ°a Ä‘Ăºng.",
+            "DĂ¹ng: /delete <expense|income|investment> <id-prefix>",
+            "VĂ­ dá»¥: /delete expense ab12cd34",
+          ].join("\n"),
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      const result = await deleteTelegramTransaction({
+        chatId,
+        payload: parsed,
       });
       await replyToTelegram(chatId, result.message);
       return NextResponse.json({ ok: true });

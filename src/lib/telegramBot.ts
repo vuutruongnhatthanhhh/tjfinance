@@ -36,7 +36,13 @@ interface CategoryListCommandPayload {
   type: CategoryListType;
 }
 
+interface DeleteCommandPayload {
+  type: TransactionCommandType;
+  idPrefix: string;
+}
+
 interface TransactionListRow {
+  id: string;
   amount: number | string;
   date: string;
   description: string;
@@ -361,6 +367,30 @@ export function parseCategoryListCommand(
   };
 }
 
+export function parseDeleteCommand(rawArgs: string): DeleteCommandPayload | null {
+  const [typeValue = "", idPrefixValue = ""] = rawArgs
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const type = typeValue.toLowerCase() as TransactionCommandType;
+  const idPrefix = idPrefixValue.trim().toLowerCase();
+  const allowedTypes: TransactionCommandType[] = [
+    "expense",
+    "income",
+    "investment",
+  ];
+
+  if (!allowedTypes.includes(type) || !idPrefix) {
+    return null;
+  }
+
+  return {
+    type,
+    idPrefix,
+  };
+}
+
 export async function linkTelegramAccount({
   token,
   chatId,
@@ -662,7 +692,7 @@ export async function listTelegramTransactions({
                   type === "investment" && item.asset?.name
                     ? ` | ${item.asset.name}`
                     : "";
-                return `${index + 1}. ${formatVietnameseDate(item.date)} | ${formatCurrency(
+                return `${index + 1}. [${item.id.slice(0, 8)}] ${formatVietnameseDate(item.date)} | ${formatCurrency(
                   Number(item.amount),
                 )} đ | ${item.category?.name || "Không danh mục"}${assetName} | ${item.description}`;
               })),
@@ -796,6 +826,72 @@ export async function listTelegramCategories({
   };
 }
 
+export async function deleteTelegramTransaction({
+  chatId,
+  payload,
+}: {
+  chatId: string;
+  payload: DeleteCommandPayload;
+}) {
+  const userId = await getLinkedUser(chatId);
+
+  if (!userId) {
+    return {
+      success: false as const,
+      message:
+        "Chat Telegram nĂ y chÆ°a Ä‘Æ°á»£c liĂªn káº¿t. VĂ o trang Telegram trong TJFinance Ä‘á»ƒ káº¿t ná»‘i bot trÆ°á»›c.",
+    };
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from(getTransactionTable(payload.type))
+    .select("id,description")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new Error(`KhĂ´ng thá»ƒ táº£i danh sĂ¡ch ${getTypeLabel(payload.type)} Ä‘á»ƒ xĂ³a.`);
+  }
+
+  const matchedItems = ((data || []) as Array<{
+    id: string;
+    description?: string | null;
+  }>).filter((item) => item.id.toLowerCase().startsWith(payload.idPrefix));
+
+  if (matchedItems.length === 0) {
+    return {
+      success: false as const,
+      message: `KhĂ´ng tĂ¬m tháº¥y ${getTypeLabel(payload.type)} vá»›i mĂ£ Ä‘Ă£ nháº­p.`,
+    };
+  }
+
+  if (matchedItems.length > 1) {
+    return {
+      success: false as const,
+      message:
+        "MĂ£ giao dá»‹ch Ä‘ang bá»‹ trĂ¹ng. Vui lĂ²ng dĂ¹ng nhiá»u kĂ½ tá»± hÆ¡n trong id-prefix.",
+    };
+  }
+
+  const transaction = matchedItems[0];
+  const { error: deleteError } = await supabase
+    .from(getTransactionTable(payload.type))
+    .delete()
+    .eq("id", transaction.id)
+    .eq("user_id", userId);
+
+  if (deleteError) {
+    throw new Error(`KhĂ´ng thá»ƒ xĂ³a ${getTypeLabel(payload.type)} tá»« Telegram.`);
+  }
+
+  return {
+    success: true as const,
+    message: `ÄĂ£ xĂ³a ${getTypeLabel(payload.type)} [${transaction.id.slice(0, 8)}] ${transaction.description || ""}`.trim(),
+  };
+}
+
 export function buildTelegramHelpMessage() {
   return [
     "Các lệnh hỗ trợ:",
@@ -804,6 +900,7 @@ export function buildTelegramHelpMessage() {
     "/income dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu",
     "/investment dd/mm/yyyy so_tien | ten_khoan_dau_tu | danh_muc | ten_giao_dich | ghi_chu",
     "/list <all|expense|income|investment> <today|week|month|year>",
+    "/delete <expense|income|investment> <id-prefix>",
     "/categories <all|expense|income|investment|asset>",
     "/help - Xem hướng dẫn",
     "",
@@ -812,6 +909,7 @@ export function buildTelegramHelpMessage() {
     "/income 07/07/2026 15000000 | Lương | Lương tháng 7",
     "/investment 07/07/2026 2000000 | Quỹ VCBF | Cổ phiếu | Mua thêm tháng 7",
     "/list all month",
+    "/delete expense ab12cd34",
     "/categories all",
     "",
     "Lưu ý: lệnh /investment hiện hỗ trợ tạo nhanh khoản đầu tư thường, không dùng cho khoản business.",

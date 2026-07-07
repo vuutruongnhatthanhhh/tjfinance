@@ -331,6 +331,7 @@ export default function TelegramSettingsClient({
                 <p>/income dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu</p>
                 <p>/investment dd/mm/yyyy so_tien | ten_khoan_dau_tu | danh_muc | ten_giao_dich | ghi_chu</p>
                 <p>/list all month hoặc /list expense week</p>
+                <p>/delete expense ab12cd34</p>
                 <p>/categories all</p>
                 <p>/categories expense</p>
                 <p>/categories income</p>
@@ -360,6 +361,7 @@ export default function TelegramSettingsClient({
               <p>/income 07/07/2026 15000000 | Lương | Lương tháng 7</p>
               <p>/investment 07/07/2026 2000000 | Quỹ VCBF | Cổ phiếu | Mua thêm tháng 7</p>
               <p>/list all month</p>
+              <p>/delete expense ab12cd34</p>
               <p>/categories all</p>
               <p>/categories expense</p>
               <p>/categories income</p>
