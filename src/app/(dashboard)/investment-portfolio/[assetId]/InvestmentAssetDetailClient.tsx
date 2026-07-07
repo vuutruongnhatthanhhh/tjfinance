@@ -50,9 +50,7 @@ interface InvestmentAssetDetailClientProps {
   returns: InvestmentReturn[];
   totalInvested: number;
   totalReturned: number;
-  currentValue: number;
-  profitLossAmount: number;
-  profitLossPercent: number;
+  valuationSearchQuery: string;
   valuationPage: number;
   filteredValuationCount: number;
   valuationPageSize: number;
@@ -77,6 +75,35 @@ function normalizeMonthDate(value: string) {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-01`;
 }
 
+function sortValuationsDesc(
+  items: InvestmentValuation[],
+): InvestmentValuation[] {
+  return [...items].sort((a, b) => {
+    const valuationDiff =
+      new Date(b.valuation_month).getTime() - new Date(a.valuation_month).getTime();
+
+    if (valuationDiff !== 0) {
+      return valuationDiff;
+    }
+
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
+function sortTransactionsDesc<T extends { date: string; created_at: string }>(
+  items: T[],
+): T[] {
+  return [...items].sort((a, b) => {
+    const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+
+    if (dateDiff !== 0) {
+      return dateDiff;
+    }
+
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
 export default function InvestmentAssetDetailClient({
   asset,
   investments,
@@ -86,9 +113,7 @@ export default function InvestmentAssetDetailClient({
   returns,
   totalInvested,
   totalReturned,
-  currentValue,
-  profitLossAmount,
-  profitLossPercent,
+  valuationSearchQuery,
   valuationPage,
   filteredValuationCount,
   valuationPageSize,
@@ -125,6 +150,24 @@ export default function InvestmentAssetDetailClient({
   const [returnCategories, setReturnCategories] = useState(
     initialReturnCategoryOptions,
   );
+  const [currentValuations, setCurrentValuations] = useState(valuations);
+  const [currentReturns, setCurrentReturns] = useState(returns);
+  const [currentInvestments, setCurrentInvestments] = useState(investments);
+  const [currentFilteredValuationCount, setCurrentFilteredValuationCount] =
+    useState(filteredValuationCount);
+  const [currentFilteredReturnCount, setCurrentFilteredReturnCount] =
+    useState(filteredReturnCount);
+  const [currentFilteredCapitalCount, setCurrentFilteredCapitalCount] =
+    useState(filteredCapitalCount);
+  const [currentTotalReturnTransactionCount, setCurrentTotalReturnTransactionCount] =
+    useState(totalReturnTransactionCount);
+  const [currentTotalCapitalTransactionCount, setCurrentTotalCapitalTransactionCount] =
+    useState(totalCapitalTransactionCount);
+  const [currentTotalInvested, setCurrentTotalInvested] = useState(totalInvested);
+  const [currentTotalReturned, setCurrentTotalReturned] = useState(totalReturned);
+  const [currentLatestValuation, setCurrentLatestValuation] = useState<
+    InvestmentValuation | undefined
+  >(latestValuation);
   const [assetCategoryId, setAssetCategoryId] = useState(
     asset.category_id ||
       asset.category?.id ||
@@ -182,6 +225,8 @@ export default function InvestmentAssetDetailClient({
   const [newCapitalCategorySaving, setNewCapitalCategorySaving] =
     useState(false);
   const [returnSearchDraft, setReturnSearchDraft] = useState(returnSearchQuery);
+  const [valuationSearchDraft, setValuationSearchDraft] =
+    useState(valuationSearchQuery);
   const [selectedValuationIds, setSelectedValuationIds] = useState<string[]>(
     [],
   );
@@ -209,36 +254,36 @@ export default function InvestmentAssetDetailClient({
   );
   const totalValuationPages = Math.max(
     1,
-    Math.ceil(filteredValuationCount / valuationPageSize),
+    Math.ceil(currentFilteredValuationCount / valuationPageSize),
   );
   const safeValuationPage = Math.min(valuationPage, totalValuationPages);
   const valuationSectionTitleRef = useRef<HTMLParagraphElement | null>(null);
   const shouldScrollValuationPaginationRef = useRef(false);
-  const visibleValuations = valuations;
+  const visibleValuations = currentValuations;
   const valuationDisplayCount =
     safeValuationPage === 1
       ? visibleValuations.length
       : (safeValuationPage - 1) * valuationPageSize + 1;
   const totalReturnPages = Math.max(
     1,
-    Math.ceil(filteredReturnCount / returnPageSize),
+    Math.ceil(currentFilteredReturnCount / returnPageSize),
   );
   const safeReturnPage = Math.min(returnPage, totalReturnPages);
   const returnSectionTitleRef = useRef<HTMLParagraphElement | null>(null);
   const shouldScrollReturnPaginationRef = useRef(false);
-  const visibleReturns = returns;
+  const visibleReturns = currentReturns;
   const returnDisplayCount =
     safeReturnPage === 1
       ? visibleReturns.length
       : (safeReturnPage - 1) * returnPageSize + 1;
   const totalCapitalPages = Math.max(
     1,
-    Math.ceil(filteredCapitalCount / capitalPageSize),
+    Math.ceil(currentFilteredCapitalCount / capitalPageSize),
   );
   const safeCapitalPage = Math.min(capitalPage, totalCapitalPages);
   const capitalSectionTitleRef = useRef<HTMLParagraphElement | null>(null);
   const shouldScrollCapitalPaginationRef = useRef(false);
-  const visibleCapitalInvestments = investments;
+  const visibleCapitalInvestments = currentInvestments;
   const capitalDisplayCount =
     safeCapitalPage === 1
       ? visibleCapitalInvestments.length
@@ -246,10 +291,10 @@ export default function InvestmentAssetDetailClient({
   const selectedValuations = visibleValuations.filter((item) =>
     selectedValuationIds.includes(item.id),
   );
-  const selectedReturns = returns.filter((item) =>
+  const selectedReturns = currentReturns.filter((item) =>
     selectedReturnIds.includes(item.id),
   );
-  const selectedCapitals = investments.filter((item) =>
+  const selectedCapitals = currentInvestments.filter((item) =>
     selectedCapitalIds.includes(item.id),
   );
   const selectedVisibleReturns = visibleReturns.filter((item) =>
@@ -327,22 +372,70 @@ export default function InvestmentAssetDetailClient({
   }, [capitalPage]);
 
   useEffect(() => {
-    setSelectedValuationIds((current) =>
-      current.filter((id) => valuations.some((item) => item.id === id)),
-    );
+    setCurrentValuations(valuations);
   }, [valuations]);
 
   useEffect(() => {
-    setSelectedReturnIds((current) =>
-      current.filter((id) => returns.some((item) => item.id === id)),
-    );
+    setCurrentReturns(returns);
   }, [returns]);
 
   useEffect(() => {
-    setSelectedCapitalIds((current) =>
-      current.filter((id) => investments.some((item) => item.id === id)),
-    );
+    setCurrentInvestments(investments);
   }, [investments]);
+
+  useEffect(() => {
+    setCurrentFilteredValuationCount(filteredValuationCount);
+  }, [filteredValuationCount]);
+
+  useEffect(() => {
+    setCurrentFilteredReturnCount(filteredReturnCount);
+  }, [filteredReturnCount]);
+
+  useEffect(() => {
+    setCurrentFilteredCapitalCount(filteredCapitalCount);
+  }, [filteredCapitalCount]);
+
+  useEffect(() => {
+    setCurrentTotalReturnTransactionCount(totalReturnTransactionCount);
+  }, [totalReturnTransactionCount]);
+
+  useEffect(() => {
+    setCurrentTotalCapitalTransactionCount(totalCapitalTransactionCount);
+  }, [totalCapitalTransactionCount]);
+
+  useEffect(() => {
+    setCurrentTotalInvested(totalInvested);
+  }, [totalInvested]);
+
+  useEffect(() => {
+    setCurrentTotalReturned(totalReturned);
+  }, [totalReturned]);
+
+  useEffect(() => {
+    setCurrentLatestValuation(latestValuation);
+  }, [latestValuation]);
+
+  useEffect(() => {
+    setSelectedValuationIds((current) =>
+      current.filter((id) => currentValuations.some((item) => item.id === id)),
+    );
+  }, [currentValuations]);
+
+  useEffect(() => {
+    setSelectedReturnIds((current) =>
+      current.filter((id) => currentReturns.some((item) => item.id === id)),
+    );
+  }, [currentReturns]);
+
+  useEffect(() => {
+    setSelectedCapitalIds((current) =>
+      current.filter((id) => currentInvestments.some((item) => item.id === id)),
+    );
+  }, [currentInvestments]);
+
+  useEffect(() => {
+    setValuationSearchDraft(valuationSearchQuery);
+  }, [valuationSearchQuery]);
 
   useEffect(() => {
     setReturnSearchDraft(returnSearchQuery);
@@ -353,18 +446,40 @@ export default function InvestmentAssetDetailClient({
   }, [capitalSearchQuery]);
 
   const profitLossColor =
-    profitLossAmount > 0
+    (asset.is_business
+      ? currentTotalReturned - currentTotalInvested
+      : (currentLatestValuation
+          ? Number(currentLatestValuation.current_value)
+          : currentTotalInvested) - currentTotalInvested) > 0
       ? "#4ade80"
-      : profitLossAmount < 0
+      : (asset.is_business
+            ? currentTotalReturned - currentTotalInvested
+            : (currentLatestValuation
+                ? Number(currentLatestValuation.current_value)
+                : currentTotalInvested) - currentTotalInvested) < 0
         ? "#f87171"
         : undefined;
   const canDeleteAsset =
-    totalCapitalTransactionCount === 0 && totalReturnTransactionCount === 0;
+    currentTotalCapitalTransactionCount === 0 &&
+    currentTotalReturnTransactionCount === 0;
+  const currentCurrentValue = currentLatestValuation
+    ? Number(currentLatestValuation.current_value)
+    : currentTotalInvested;
+  const currentProfitLossAmount = asset.is_business
+    ? currentTotalReturned - currentTotalInvested
+    : currentCurrentValue - currentTotalInvested;
+  const currentProfitLossPercent =
+    currentTotalInvested > 0
+      ? (currentProfitLossAmount / currentTotalInvested) * 100
+      : 0;
 
   const navigateWithFilters = (
     updates: Record<string, string | number | undefined>,
   ) => {
     const params = new URLSearchParams();
+    const nextValuationSearch = String(
+      updates.valuation_q ?? valuationSearchQuery,
+    ).trim();
     const nextValuationPage = Number(updates.valuation_page ?? valuationPage);
     const nextReturnSearch = String(
       updates.return_q ?? returnSearchQuery,
@@ -381,6 +496,9 @@ export default function InvestmentAssetDetailClient({
     ).trim();
     const nextCapitalPage = Number(updates.capital_page ?? capitalPage);
 
+    if (nextValuationSearch) {
+      params.set("valuation_q", nextValuationSearch);
+    }
     if (nextValuationPage > 1) {
       params.set("valuation_page", String(nextValuationPage));
     }
@@ -407,6 +525,34 @@ export default function InvestmentAssetDetailClient({
         scroll: false,
       });
     });
+  };
+
+  const matchesValuationSearch = (item: InvestmentValuation) =>
+    !valuationSearchQuery ||
+    (item.note || "").toLowerCase().includes(valuationSearchQuery.toLowerCase());
+
+  const matchesReturnFilters = (item: InvestmentReturn) => {
+    const normalizedSearch = returnSearchQuery.toLowerCase();
+    const matchesSearch =
+      !normalizedSearch ||
+      item.description.toLowerCase().includes(normalizedSearch) ||
+      (item.note || "").toLowerCase().includes(normalizedSearch);
+    const matchesCategory =
+      returnCategoryFilter === "all" || item.category_id === returnCategoryFilter;
+
+    return matchesSearch && matchesCategory;
+  };
+
+  const matchesCapitalFilters = (item: Expense) => {
+    const normalizedSearch = capitalSearchQuery.toLowerCase();
+    const matchesSearch =
+      !normalizedSearch ||
+      item.description.toLowerCase().includes(normalizedSearch) ||
+      (item.note || "").toLowerCase().includes(normalizedSearch);
+    const matchesCategory =
+      capitalCategoryFilter === "all" || item.category_id === capitalCategoryFilter;
+
+    return matchesSearch && matchesCategory;
   };
 
   const saveAssetInfo = async (event: React.FormEvent) => {
@@ -454,7 +600,7 @@ export default function InvestmentAssetDetailClient({
     }
 
     const supabase = createClient();
-    const { error: dbError } = await supabase
+    const { data: savedValuation, error: dbError } = await supabase
       .from("investment_valuations")
       .upsert(
         {
@@ -465,11 +611,33 @@ export default function InvestmentAssetDetailClient({
           note: valuationNote || null,
         },
         { onConflict: "asset_id,valuation_month" },
-      );
+      )
+      .select("*")
+      .single();
 
-    if (dbError) {
+    if (dbError || !savedValuation) {
       setError("Không thể lưu giá trị tháng. Vui lòng thử lại.");
       return;
+    }
+
+    setCurrentValuations((current) => {
+      const nextItems = current.some((item) => item.id === savedValuation.id)
+        ? current.map((item) => (item.id === savedValuation.id ? savedValuation : item))
+        : safeValuationPage === 1 && matchesValuationSearch(savedValuation)
+          ? [savedValuation, ...current]
+          : current;
+
+      return sortValuationsDesc(nextItems).slice(0, valuationPageSize);
+    });
+    if (!valuations.some((item) => item.id === savedValuation.id) && matchesValuationSearch(savedValuation)) {
+      setCurrentFilteredValuationCount((current) => current + 1);
+    }
+    if (
+      !currentLatestValuation ||
+      new Date(savedValuation.valuation_month).getTime() >=
+        new Date(currentLatestValuation.valuation_month).getTime()
+    ) {
+      setCurrentLatestValuation(savedValuation as InvestmentValuation);
     }
 
     showToast("Tạo mới thành công");
@@ -510,14 +678,47 @@ export default function InvestmentAssetDetailClient({
       note: valuationNote || null,
     };
 
-    const { error: dbError } = await supabase
+    const previousValuation = currentValuations.find(
+      (item) => item.id === editingValuationId,
+    );
+    const { data: updatedValuation, error: dbError } = await supabase
       .from("investment_valuations")
       .update(payload)
-      .eq("id", editingValuationId);
+      .eq("id", editingValuationId)
+      .select("*")
+      .single();
 
-    if (dbError) {
+    if (dbError || !updatedValuation) {
       setError("Không thể lưu giá trị tháng. Vui lòng thử lại.");
       return;
+    }
+
+    const matchedBefore = previousValuation ? matchesValuationSearch(previousValuation) : false;
+    const matchedAfter = matchesValuationSearch(updatedValuation as InvestmentValuation);
+
+    setCurrentValuations((current) => {
+      const nextItems = current
+        .map((item) =>
+          item.id === editingValuationId ? (updatedValuation as InvestmentValuation) : item,
+        )
+        .filter((item) => item.id !== editingValuationId || matchedAfter);
+
+      return sortValuationsDesc(nextItems);
+    });
+
+    if (matchedBefore && !matchedAfter) {
+      setCurrentFilteredValuationCount((current) => Math.max(0, current - 1));
+    } else if (!matchedBefore && matchedAfter) {
+      setCurrentFilteredValuationCount((current) => current + 1);
+    }
+
+    if (
+      currentLatestValuation?.id === editingValuationId ||
+      !currentLatestValuation ||
+      new Date(updatedValuation.valuation_month).getTime() >=
+        new Date(currentLatestValuation.valuation_month).getTime()
+    ) {
+      setCurrentLatestValuation(updatedValuation as InvestmentValuation);
     }
 
     setEditingValuationId(null);
@@ -562,18 +763,70 @@ export default function InvestmentAssetDetailClient({
       note: returnNote || null,
       date: returnDate,
     };
+    const previousReturn = editingReturnId
+      ? currentReturns.find((item) => item.id === editingReturnId)
+      : undefined;
 
-    const { error: dbError } = editingReturnId
+    const { data: savedReturn, error: dbError } = editingReturnId
       ? await supabase
           .from("investment_returns")
           .update(payload)
           .eq("id", editingReturnId)
-      : await supabase.from("investment_returns").insert(payload);
+          .select("*, category:categories(*)")
+          .single()
+      : await supabase
+          .from("investment_returns")
+          .insert(payload)
+          .select("*, category:categories(*)")
+          .single();
 
-    if (dbError) {
+    if (dbError || !savedReturn) {
       setReturnError("Không thể lưu giao dịch thu tiền. Vui lòng thử lại.");
       setReturnLoading(false);
       return;
+    }
+
+    const matchedBefore = previousReturn
+      ? matchesReturnFilters(previousReturn)
+      : false;
+    const matchedAfter = matchesReturnFilters(savedReturn as InvestmentReturn);
+
+    setCurrentReturns((current) => {
+      const exists = current.some((item) => item.id === savedReturn.id);
+
+      if (exists) {
+        const nextItems = current
+          .map((item) =>
+            item.id === savedReturn.id ? (savedReturn as InvestmentReturn) : item,
+          )
+          .filter((item) => item.id !== savedReturn.id || matchedAfter);
+
+        return sortTransactionsDesc(nextItems);
+      }
+
+      if (!matchedAfter || safeReturnPage !== 1) {
+        return current;
+      }
+
+      return sortTransactionsDesc([
+        savedReturn as InvestmentReturn,
+        ...current,
+      ]).slice(0, returnPageSize);
+    });
+
+    if (!previousReturn && matchedAfter) {
+      setCurrentFilteredReturnCount((current) => current + 1);
+      setCurrentTotalReturnTransactionCount((current) => current + 1);
+      setCurrentTotalReturned((current) => current + amountNumber);
+    } else if (previousReturn) {
+      const previousAmount = Number(previousReturn.amount);
+      setCurrentTotalReturned((current) => current - previousAmount + amountNumber);
+
+      if (matchedBefore && !matchedAfter) {
+        setCurrentFilteredReturnCount((current) => Math.max(0, current - 1));
+      } else if (!matchedBefore && matchedAfter) {
+        setCurrentFilteredReturnCount((current) => current + 1);
+      }
     }
 
     setReturnAmount("");
@@ -633,18 +886,68 @@ export default function InvestmentAssetDetailClient({
       note: capitalNote || null,
       date: capitalDate,
     };
+    const previousCapital = editingCapitalId
+      ? currentInvestments.find((item) => item.id === editingCapitalId)
+      : undefined;
 
-    const { error: dbError } = editingCapitalId
+    const { data: savedCapital, error: dbError } = editingCapitalId
       ? await supabase
           .from("investments")
           .update(payload)
           .eq("id", editingCapitalId)
-      : await supabase.from("investments").insert(payload);
+          .select("*, category:categories(*)")
+          .single()
+      : await supabase
+          .from("investments")
+          .insert(payload)
+          .select("*, category:categories(*)")
+          .single();
 
-    if (dbError) {
+    if (dbError || !savedCapital) {
       setCapitalError("Không thể thêm lần rót vốn. Vui lòng thử lại.");
       setCapitalLoading(false);
       return;
+    }
+
+    const matchedBefore = previousCapital
+      ? matchesCapitalFilters(previousCapital)
+      : false;
+    const matchedAfter = matchesCapitalFilters(savedCapital as Expense);
+
+    setCurrentInvestments((current) => {
+      const exists = current.some((item) => item.id === savedCapital.id);
+
+      if (exists) {
+        const nextItems = current
+          .map((item) => (item.id === savedCapital.id ? (savedCapital as Expense) : item))
+          .filter((item) => item.id !== savedCapital.id || matchedAfter);
+
+        return sortTransactionsDesc(nextItems);
+      }
+
+      if (!matchedAfter || safeCapitalPage !== 1) {
+        return current;
+      }
+
+      return sortTransactionsDesc([savedCapital as Expense, ...current]).slice(
+        0,
+        capitalPageSize,
+      );
+    });
+
+    if (!previousCapital && matchedAfter) {
+      setCurrentFilteredCapitalCount((current) => current + 1);
+      setCurrentTotalCapitalTransactionCount((current) => current + 1);
+      setCurrentTotalInvested((current) => current + amountNumber);
+    } else if (previousCapital) {
+      const previousAmount = Number(previousCapital.amount);
+      setCurrentTotalInvested((current) => current - previousAmount + amountNumber);
+
+      if (matchedBefore && !matchedAfter) {
+        setCurrentFilteredCapitalCount((current) => Math.max(0, current - 1));
+      } else if (!matchedBefore && matchedAfter) {
+        setCurrentFilteredCapitalCount((current) => current + 1);
+      }
     }
 
     setCapitalAmount("");
@@ -779,6 +1082,32 @@ export default function InvestmentAssetDetailClient({
     setReturnCategoryId(defaultReturnCategoryId);
     setReturnError("");
     setReturnModalOpen(true);
+  };
+
+  const applyValuationSearch = () => {
+    navigateWithFilters({
+      valuation_q: valuationSearchDraft.trim(),
+      valuation_page: 1,
+    });
+  };
+
+  const handleValuationSearchDraftChange = (value: string) => {
+    setValuationSearchDraft(value);
+
+    if (!value.trim()) {
+      navigateWithFilters({
+        valuation_q: "",
+        valuation_page: 1,
+      });
+    }
+  };
+
+  const clearValuationSearch = () => {
+    setValuationSearchDraft("");
+    navigateWithFilters({
+      valuation_q: "",
+      valuation_page: 1,
+    });
   };
 
   const applyReturnSearch = () => {
@@ -931,6 +1260,14 @@ export default function InvestmentAssetDetailClient({
       cancelEditCapital();
     }
 
+    if (matchesCapitalFilters(item)) {
+      setCurrentFilteredCapitalCount((current) => Math.max(0, current - 1));
+    }
+    setCurrentTotalCapitalTransactionCount((current) => Math.max(0, current - 1));
+    setCurrentTotalInvested((current) => current - Number(item.amount));
+    setCurrentInvestments((current) =>
+      current.filter((currentItem) => currentItem.id !== item.id),
+    );
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
     setDeletingCapitalId(null);
@@ -954,6 +1291,14 @@ export default function InvestmentAssetDetailClient({
     if (editingReturnId === item.id) {
       cancelEditReturn();
     }
+    if (matchesReturnFilters(item)) {
+      setCurrentFilteredReturnCount((current) => Math.max(0, current - 1));
+    }
+    setCurrentTotalReturnTransactionCount((current) => Math.max(0, current - 1));
+    setCurrentTotalReturned((current) => current - Number(item.amount));
+    setCurrentReturns((current) =>
+      current.filter((currentItem) => currentItem.id !== item.id),
+    );
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
     setDeletingReturnId(null);
@@ -973,6 +1318,14 @@ export default function InvestmentAssetDetailClient({
       setDeletingValuationId(null);
       return;
     }
+    setCurrentFilteredValuationCount((current) => Math.max(0, current - 1));
+    setCurrentValuations((current) => {
+      const nextItems = current.filter((item) => item.id !== valuationId);
+      if (currentLatestValuation?.id === valuationId) {
+        setCurrentLatestValuation(sortValuationsDesc(nextItems)[0]);
+      }
+      return nextItems;
+    });
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
     setDeletingValuationId(null);
@@ -1000,6 +1353,20 @@ export default function InvestmentAssetDetailClient({
       return;
     }
 
+    const deletedIds = new Set(items.map((item) => item.id));
+    const deletingLatest = items.some(
+      (item) => item.id === currentLatestValuation?.id,
+    );
+    setCurrentFilteredValuationCount((current) =>
+      Math.max(0, current - items.length),
+    );
+    setCurrentValuations((current) => {
+      const nextItems = current.filter((item) => !deletedIds.has(item.id));
+      if (deletingLatest) {
+        setCurrentLatestValuation(sortValuationsDesc(nextItems)[0]);
+      }
+      return nextItems;
+    });
     setSelectedValuationIds([]);
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
@@ -1027,6 +1394,20 @@ export default function InvestmentAssetDetailClient({
       return;
     }
 
+    const deletedIds = new Set(items.map((item) => item.id));
+    setCurrentFilteredReturnCount((current) =>
+      Math.max(0, current - items.length),
+    );
+    setCurrentTotalReturnTransactionCount((current) =>
+      Math.max(0, current - items.length),
+    );
+    setCurrentTotalReturned((current) =>
+      current -
+      items.reduce((sum, item) => sum + Number(item.amount), 0),
+    );
+    setCurrentReturns((current) =>
+      current.filter((item) => !deletedIds.has(item.id)),
+    );
     setSelectedReturnIds([]);
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
@@ -1054,6 +1435,20 @@ export default function InvestmentAssetDetailClient({
       return;
     }
 
+    const deletedIds = new Set(items.map((item) => item.id));
+    setCurrentFilteredCapitalCount((current) =>
+      Math.max(0, current - items.length),
+    );
+    setCurrentTotalCapitalTransactionCount((current) =>
+      Math.max(0, current - items.length),
+    );
+    setCurrentTotalInvested((current) =>
+      current -
+      items.reduce((sum, item) => sum + Number(item.amount), 0),
+    );
+    setCurrentInvestments((current) =>
+      current.filter((item) => !deletedIds.has(item.id)),
+    );
     setSelectedCapitalIds([]);
     showToast("Xóa thành công");
     startTransition(() => router.refresh());
@@ -1074,6 +1469,10 @@ export default function InvestmentAssetDetailClient({
     const supabase = createClient();
 
     if (selectedValuationIds.length > 0) {
+      const deletedIds = new Set(selectedValuationIds);
+      const deletingLatest = selectedValuationIds.includes(
+        currentLatestValuation?.id || "",
+      );
       const { error: valuationError } = await supabase
         .from("investment_valuations")
         .delete()
@@ -1083,6 +1482,17 @@ export default function InvestmentAssetDetailClient({
         setError("Không thể xóa giá trị tháng. Vui lòng thử lại.");
         return;
       }
+
+      setCurrentFilteredValuationCount((current) =>
+        Math.max(0, current - selectedValuationIds.length),
+      );
+      setCurrentValuations((current) => {
+        const nextItems = current.filter((item) => !deletedIds.has(item.id));
+        if (deletingLatest) {
+          setCurrentLatestValuation(sortValuationsDesc(nextItems)[0]);
+        }
+        return nextItems;
+      });
     }
 
     if (selectedReturnIds.length > 0) {
@@ -1095,6 +1505,20 @@ export default function InvestmentAssetDetailClient({
         setReturnError("Không thể xóa giao dịch thu tiền. Vui lòng thử lại.");
         return;
       }
+
+      setCurrentFilteredReturnCount((current) =>
+        Math.max(0, current - selectedReturnIds.length),
+      );
+      setCurrentTotalReturnTransactionCount((current) =>
+        Math.max(0, current - selectedReturnIds.length),
+      );
+      setCurrentTotalReturned((current) =>
+        current -
+        selectedReturns.reduce((sum, item) => sum + Number(item.amount), 0),
+      );
+      setCurrentReturns((current) =>
+        current.filter((item) => !selectedReturnIds.includes(item.id)),
+      );
     }
 
     if (selectedCapitalIds.length > 0) {
@@ -1107,6 +1531,20 @@ export default function InvestmentAssetDetailClient({
         setCapitalError("Không thể xóa lần rót vốn. Vui lòng thử lại.");
         return;
       }
+
+      setCurrentFilteredCapitalCount((current) =>
+        Math.max(0, current - selectedCapitalIds.length),
+      );
+      setCurrentTotalCapitalTransactionCount((current) =>
+        Math.max(0, current - selectedCapitalIds.length),
+      );
+      setCurrentTotalInvested((current) =>
+        current -
+        selectedCapitals.reduce((sum, item) => sum + Number(item.amount), 0),
+      );
+      setCurrentInvestments((current) =>
+        current.filter((item) => !selectedCapitalIds.includes(item.id)),
+      );
     }
 
     setSelectedValuationIds([]);
@@ -1352,7 +1790,7 @@ export default function InvestmentAssetDetailClient({
         >
           <StatCard
             title="Vốn đầu tư"
-            value={formatCurrency(totalInvested)}
+            value={formatCurrency(currentTotalInvested)}
             subtitle="Tổng các giao dịch vốn"
             icon={<Landmark className="h-6 w-6" />}
             color="blue"
@@ -1360,7 +1798,7 @@ export default function InvestmentAssetDetailClient({
           {!asset.is_business && (
             <StatCard
               title="Giá trị hiện tại"
-              value={formatCurrency(currentValue)}
+              value={formatCurrency(currentCurrentValue)}
               subtitle="Theo lần cập nhật mới nhất"
               icon={<CalendarRange className="h-6 w-6" />}
               color="green"
@@ -1369,7 +1807,7 @@ export default function InvestmentAssetDetailClient({
           {asset.is_business && (
             <StatCard
               title="Đã thu về"
-              value={formatCurrency(totalReturned)}
+              value={formatCurrency(currentTotalReturned)}
               subtitle="Tiền quay về từ khoản đầu tư"
               icon={<TrendingUp className="h-6 w-6" />}
               color="purple"
@@ -1377,17 +1815,17 @@ export default function InvestmentAssetDetailClient({
           )}
           <StatCard
             title="Lời / lỗ"
-            value={`${profitLossAmount >= 0 ? "+" : ""}${formatCurrency(profitLossAmount)}`}
+            value={`${currentProfitLossAmount >= 0 ? "+" : ""}${formatCurrency(currentProfitLossAmount)}`}
             valueColor={profitLossColor}
-            subtitle={`${profitLossPercent.toFixed(2)}% so với vốn`}
+            subtitle={`${currentProfitLossPercent.toFixed(2)}% so với vốn`}
             icon={
-              profitLossAmount >= 0 ? (
+              currentProfitLossAmount >= 0 ? (
                 <TrendingUp className="h-6 w-6" />
               ) : (
                 <TrendingDown className="h-6 w-6" />
               )
             }
-            color={profitLossAmount >= 0 ? "green" : "red"}
+            color={currentProfitLossAmount >= 0 ? "green" : "red"}
           />
         </div>
 
@@ -1443,8 +1881,62 @@ export default function InvestmentAssetDetailClient({
                 )}
               </div>
 
+              <form
+                className="mt-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  applyValuationSearch();
+                }}
+              >
+                <div>
+                  <label
+                    className="mb-2 block text-xs font-semibold uppercase tracking-wide"
+                    style={{ color: "rgba(226,255,232,0.5)" }}
+                  >
+                    Tìm kiếm theo ghi chú
+                  </label>
+                  <div className="flex gap-2">
+                    <div className="relative min-w-0 flex-1">
+                      <input
+                        type="text"
+                        value={valuationSearchDraft}
+                        onChange={(event) =>
+                          handleValuationSearchDraftChange(event.target.value)
+                        }
+                        placeholder="Tìm trong ghi chú cập nhật giá trị..."
+                        maxLength={100}
+                        className="min-w-0 w-full rounded-xl border py-3 pl-5 pr-14 text-sm text-white outline-none"
+                        style={{
+                          borderColor: "rgba(45,154,75,0.2)",
+                          background: "rgba(5,13,8,0.8)",
+                        }}
+                      />
+                      {valuationSearchDraft && (
+                        <button
+                          type="button"
+                          onClick={clearValuationSearch}
+                          className="absolute right-3 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/5 hover:text-white"
+                          aria-label="Xóa tìm kiếm"
+                          title="Xóa"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      type="submit"
+                      className="btn-primary inline-flex items-center gap-2 px-4"
+                      aria-label="Tìm kiếm ghi chú cập nhật giá trị"
+                      title="Tìm kiếm"
+                    >
+                      <Search className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </form>
+
               <div className="mb-4 mt-4 flex flex-wrap items-center justify-end gap-2">
-                {filteredValuationCount > 0 && (
+                {currentFilteredValuationCount > 0 && (
                   <button
                     type="button"
                     onClick={() =>
@@ -1480,7 +1972,7 @@ export default function InvestmentAssetDetailClient({
                     onClick={() =>
                       handleBulkDeleteValuations(selectedValuations)
                     }
-                    className="hidden rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 lg:inline-flex"
+                    className="rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 lg:inline-flex"
                   >
                     Xóa đã chọn ({selectedValuations.length})
                   </button>
@@ -1568,7 +2060,7 @@ export default function InvestmentAssetDetailClient({
                   className="text-sm"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  Hiển thị {valuationDisplayCount} / {filteredValuationCount}{" "}
+                  Hiển thị {valuationDisplayCount} / {currentFilteredValuationCount}{" "}
                   mục
                 </p>
                 <div className="flex items-center gap-2">
@@ -1672,7 +2164,7 @@ export default function InvestmentAssetDetailClient({
                     </span>
                   )}
                   <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
-                    {filteredReturnCount > 0 && (
+                    {currentFilteredReturnCount > 0 && (
                       <button
                         type="button"
                         onClick={() =>
@@ -1799,7 +2291,7 @@ export default function InvestmentAssetDetailClient({
                   </div>
                 </form>
 
-                {filteredReturnCount > 0 ? (
+                {currentFilteredReturnCount > 0 ? (
                   <div className="mt-6 space-y-3">
                     {visibleReturns.map((item) => (
                       <div
@@ -1923,8 +2415,8 @@ export default function InvestmentAssetDetailClient({
                     className="text-sm"
                     style={{ color: "rgba(226,255,232,0.45)" }}
                   >
-                    Hiển thị {returnDisplayCount} / {filteredReturnCount} giao
-                    dịch
+                    Hiển thị {returnDisplayCount} / {currentFilteredReturnCount} giao
+                  dịch
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -2018,7 +2510,7 @@ export default function InvestmentAssetDetailClient({
                   </span>
                 )}
                 <div className="flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
-                  {filteredCapitalCount > 0 && (
+                  {currentFilteredCapitalCount > 0 && (
                     <button
                       type="button"
                       onClick={() =>
@@ -2317,7 +2809,7 @@ export default function InvestmentAssetDetailClient({
                 </div>
               </form>
 
-              {filteredCapitalCount > 0 ? (
+              {currentFilteredCapitalCount > 0 ? (
                 <div className="mt-6 space-y-3">
                   {visibleCapitalInvestments.map((item) => (
                     <div
@@ -2441,7 +2933,7 @@ export default function InvestmentAssetDetailClient({
                   className="text-sm"
                   style={{ color: "rgba(226,255,232,0.45)" }}
                 >
-                  Hiển thị {capitalDisplayCount} / {filteredCapitalCount} giao
+                  Hiển thị {capitalDisplayCount} / {currentFilteredCapitalCount} giao
                   dịch
                 </p>
                 <div className="flex items-center gap-2">

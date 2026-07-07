@@ -14,6 +14,7 @@ const RETURN_PAGE_SIZE = 10;
 const VALUATION_PAGE_SIZE = 10;
 
 type DetailSearchParams = {
+  valuation_q?: string | string[];
   valuation_page?: string | string[];
   return_q?: string | string[];
   return_category?: string | string[];
@@ -49,6 +50,9 @@ export default async function InvestmentAssetDetailPage({
   if (!user) redirect("/login");
 
   const assetId = resolvedParams.assetId;
+  const valuationSearchQuery = firstParam(
+    resolvedSearchParams?.valuation_q,
+  ).trim();
   const valuationPage = Math.max(
     1,
     Number.parseInt(firstParam(resolvedSearchParams?.valuation_page), 10) || 1,
@@ -164,17 +168,26 @@ export default async function InvestmentAssetDetailPage({
     { data: allReturns },
     { data: allInvestments },
   ] = await Promise.all([
-    supabase
-      .from("investment_valuations")
-      .select("*", { count: "exact" })
-      .eq("user_id", user.id)
-      .eq("asset_id", assetId)
-      .order("valuation_month", { ascending: false })
-      .order("created_at", { ascending: false })
-      .range(
-        (valuationPage - 1) * VALUATION_PAGE_SIZE,
-        valuationPage * VALUATION_PAGE_SIZE - 1,
-      ),
+    (() => {
+      let valuationsQuery = supabase
+        .from("investment_valuations")
+        .select("*", { count: "exact" })
+        .eq("user_id", user.id)
+        .eq("asset_id", assetId);
+
+      if (valuationSearchQuery) {
+        const escapedSearch = escapeSearchValue(valuationSearchQuery);
+        valuationsQuery = valuationsQuery.ilike("note", `%${escapedSearch}%`);
+      }
+
+      return valuationsQuery
+        .order("valuation_month", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(
+          (valuationPage - 1) * VALUATION_PAGE_SIZE,
+          valuationPage * VALUATION_PAGE_SIZE - 1,
+        );
+    })(),
     returnsQuery
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
@@ -209,15 +222,6 @@ export default async function InvestmentAssetDetailPage({
     (sum, item) => sum + Number(item.amount),
     0,
   );
-  const currentValue = latestValuation
-    ? Number(latestValuation.current_value)
-    : totalInvested;
-  const profitLossAmount = asset.is_business
-    ? totalReturned - totalInvested
-    : currentValue - totalInvested;
-  const profitLossPercent =
-    totalInvested > 0 ? (profitLossAmount / totalInvested) * 100 : 0;
-
   return (
     <InvestmentAssetDetailClient
       asset={asset as InvestmentAsset & { category?: Category }}
@@ -228,9 +232,7 @@ export default async function InvestmentAssetDetailPage({
       returns={(paginatedReturns || []) as InvestmentReturn[]}
       totalInvested={totalInvested}
       totalReturned={totalReturned}
-      currentValue={currentValue}
-      profitLossAmount={profitLossAmount}
-      profitLossPercent={profitLossPercent}
+      valuationSearchQuery={valuationSearchQuery}
       valuationPage={valuationPage}
       filteredValuationCount={filteredValuationCount || 0}
       valuationPageSize={VALUATION_PAGE_SIZE}

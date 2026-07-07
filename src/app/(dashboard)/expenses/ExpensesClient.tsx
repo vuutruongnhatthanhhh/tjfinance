@@ -2045,7 +2045,7 @@ export default function ExpensesClient({
 
   const filterInputStyle = {
     width: "100%",
-    padding: "9px 14px 9px 38px",
+    padding: "9px 84px 9px 38px",
     borderRadius: "12px",
     border: "1px solid rgba(45,154,75,0.15)",
     background: "rgba(10,20,13,0.7)",
@@ -2080,6 +2080,11 @@ export default function ExpensesClient({
 
   const submitSearch = () => {
     navigate({ q: searchInput.trim(), page: 1 });
+  };
+
+  const clearSearch = () => {
+    setSearchInput("");
+    navigate({ q: "", page: 1 });
   };
 
   const EmptyIcon =
@@ -2173,6 +2178,21 @@ export default function ExpensesClient({
                         maxLength={SEARCH_INPUT_MAX_LENGTH}
                         style={filterInputStyle}
                       />
+                      {searchInput.trim() && (
+                        <button
+                          type="button"
+                          onClick={clearSearch}
+                          className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg transition-colors"
+                          style={{
+                            background: "rgba(255,255,255,0.05)",
+                            color: "rgba(226,255,232,0.72)",
+                            border: "1px solid rgba(45,154,75,0.14)",
+                          }}
+                          aria-label="Xóa tìm kiếm"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                     <button
                       type="submit"
