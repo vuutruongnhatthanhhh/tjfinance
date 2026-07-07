@@ -618,7 +618,7 @@ function AddExpenseModal({
       category_id: resolvedCategoryId || "",
       amount: amountNumber,
       description,
-      note: note || null,
+      note: note || undefined,
       date,
       created_at: expense?.created_at || timestamp,
       updated_at: timestamp,
