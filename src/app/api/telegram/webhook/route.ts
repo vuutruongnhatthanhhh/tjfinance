@@ -209,9 +209,9 @@ export async function POST(request: Request) {
         await replyToTelegram(
           chatId,
           [
-            "CĂº phĂ¡p chÆ°a Ä‘Ăºng.",
-            "DĂ¹ng: /delete <expense|income|investment> <id-prefix>",
-            "VĂ­ dá»¥: /delete expense ab12cd34",
+            "Cú pháp chưa đúng.",
+            "Dùng: /delete <expense|income|investment> <id-prefix>",
+            "Ví dụ: /delete expense ab12cd34",
           ].join("\n"),
         );
         return NextResponse.json({ ok: true });

@@ -839,7 +839,7 @@ export async function deleteTelegramTransaction({
     return {
       success: false as const,
       message:
-        "Chat Telegram nĂ y chÆ°a Ä‘Æ°á»£c liĂªn káº¿t. VĂ o trang Telegram trong TJFinance Ä‘á»ƒ káº¿t ná»‘i bot trÆ°á»›c.",
+        "Chat Telegram này chưa được liên kết. Vào trang Telegram trong TJFinance để kết nối bot trước.",
     };
   }
 
@@ -852,7 +852,7 @@ export async function deleteTelegramTransaction({
     .limit(100);
 
   if (error) {
-    throw new Error(`KhĂ´ng thá»ƒ táº£i danh sĂ¡ch ${getTypeLabel(payload.type)} Ä‘á»ƒ xĂ³a.`);
+    throw new Error(`Không thể tải danh sách ${getTypeLabel(payload.type)} để xóa.`);
   }
 
   const matchedItems = ((data || []) as Array<{
@@ -863,7 +863,7 @@ export async function deleteTelegramTransaction({
   if (matchedItems.length === 0) {
     return {
       success: false as const,
-      message: `KhĂ´ng tĂ¬m tháº¥y ${getTypeLabel(payload.type)} vá»›i mĂ£ Ä‘Ă£ nháº­p.`,
+      message: `Không tìm thấy ${getTypeLabel(payload.type)} với mã đã nhập.`,
     };
   }
 
@@ -871,7 +871,7 @@ export async function deleteTelegramTransaction({
     return {
       success: false as const,
       message:
-        "MĂ£ giao dá»‹ch Ä‘ang bá»‹ trĂ¹ng. Vui lĂ²ng dĂ¹ng nhiá»u kĂ½ tá»± hÆ¡n trong id-prefix.",
+        "Mã giao dịch đang bị trùng. Vui lòng dùng nhiều ký tự hơn trong id-prefix.",
     };
   }
 
@@ -883,12 +883,12 @@ export async function deleteTelegramTransaction({
     .eq("user_id", userId);
 
   if (deleteError) {
-    throw new Error(`KhĂ´ng thá»ƒ xĂ³a ${getTypeLabel(payload.type)} tá»« Telegram.`);
+    throw new Error(`Không thể xóa ${getTypeLabel(payload.type)} từ Telegram.`);
   }
 
   return {
     success: true as const,
-    message: `ÄĂ£ xĂ³a ${getTypeLabel(payload.type)} [${transaction.id.slice(0, 8)}] ${transaction.description || ""}`.trim(),
+    message: `Đã xóa ${getTypeLabel(payload.type)} [${transaction.id.slice(0, 8)}] ${transaction.description || ""}`.trim(),
   };
 }
 
