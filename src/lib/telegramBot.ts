@@ -54,6 +54,8 @@ interface TransactionListRow {
   } | null;
 }
 
+const TELEGRAM_LIST_ITEM_LIMIT = 10;
+
 function padTwoDigits(value: number) {
   return String(value).padStart(2, "0");
 }
@@ -659,7 +661,14 @@ export async function listTelegramTransactions({
       : [filter.type];
 
   for (const type of types) {
-    const query = supabase
+    const summaryQuery = supabase
+      .from(getTransactionTable(type))
+      .select("amount")
+      .eq("user_id", userId)
+      .gte("date", range.start)
+      .lte("date", range.end);
+
+    const listQuery = supabase
       .from(getTransactionTable(type))
       .select(
         type === "investment"
@@ -671,35 +680,45 @@ export async function listTelegramTransactions({
       .lte("date", range.end)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(TELEGRAM_LIST_ITEM_LIMIT);
 
-    const { data, error } = await query;
+    const [
+      { data: summaryData, error: summaryError },
+      { data: listData, error: listError },
+    ] = await Promise.all([summaryQuery, listQuery]);
 
-    if (error) {
+    if (summaryError || listError) {
       throw new Error(`Không thể tải danh sách ${getTypeLabel(type)}.`);
     }
 
-    const items = ((data || []) as unknown) as TransactionListRow[];
-    const total = items.reduce((sum, item) => sum + Number(item.amount), 0);
+    const allItems = (summaryData || []) as Array<{ amount: number | string }>;
+    const items = ((listData || []) as unknown) as TransactionListRow[];
+    const totalCount = allItems.length;
+    const total = allItems.reduce((sum, item) => sum + Number(item.amount), 0);
 
-    grandCount += items.length;
+    grandCount += totalCount;
     totalsByType[type] = total;
 
-    if (filter.type !== "all" || items.length > 0) {
+    if (filter.type !== "all" || totalCount > 0) {
       sections.push(
         [
-          `${getTypeLabel(type).toUpperCase()}: ${items.length} mục - ${formatCurrency(total)} đ`,
-          ...(items.length === 0
+          `${getTypeLabel(type).toUpperCase()}: ${totalCount} mục - ${formatCurrency(total)} đ`,
+          ...(totalCount === 0
             ? ["Chưa có dữ liệu."]
-            : items.map((item, index) => {
-                const assetName =
-                  type === "investment" && item.asset?.name
-                    ? ` | ${item.asset.name}`
-                    : "";
-                return `${index + 1}. [${item.id.slice(0, 8)}] ${formatVietnameseDate(item.date)} | ${formatCurrency(
-                  Number(item.amount),
-                )} đ | ${item.category?.name || "Không danh mục"}${assetName} | ${item.description}`;
-              })),
+            : [
+                ...items.map((item, index) => {
+                  const assetName =
+                    type === "investment" && item.asset?.name
+                      ? ` | ${item.asset.name}`
+                      : "";
+                  return `${index + 1}. [${item.id.slice(0, 8)}] ${formatVietnameseDate(item.date)} | ${formatCurrency(
+                    Number(item.amount),
+                  )} đ | ${item.category?.name || "Không danh mục"}${assetName} | ${item.description}`;
+                }),
+                ...(totalCount > items.length
+                  ? [`${items.length + 1}. ...`]
+                  : []),
+              ]),
         ].join("\n"),
       );
     }
