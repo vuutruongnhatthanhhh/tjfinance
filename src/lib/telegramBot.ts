@@ -4,6 +4,7 @@ import { Category, InvestmentAsset } from "@/types";
 type TransactionCommandType = "expense" | "income" | "investment";
 type ListRange = "today" | "week" | "month" | "year";
 type ListType = TransactionCommandType | "all";
+type CategoryListType = TransactionCommandType | "asset" | "all";
 
 interface TelegramIntegrationRow {
   user_id: string;
@@ -29,6 +30,10 @@ interface InvestmentCommandPayload extends TransactionPayload {
 interface ListCommandPayload {
   type: ListType;
   range: ListRange;
+}
+
+interface CategoryListCommandPayload {
+  type: CategoryListType;
 }
 
 interface TransactionListRow {
@@ -332,6 +337,27 @@ export function parseListCommand(rawArgs: string): ListCommandPayload | null {
   return {
     type: normalizedType,
     range: normalizedRange,
+  };
+}
+
+export function parseCategoryListCommand(
+  rawArgs: string,
+): CategoryListCommandPayload | null {
+  const normalizedType = (rawArgs.trim().toLowerCase() || "all") as CategoryListType;
+  const allowedTypes: CategoryListType[] = [
+    "all",
+    "expense",
+    "income",
+    "investment",
+    "asset",
+  ];
+
+  if (!allowedTypes.includes(normalizedType)) {
+    return null;
+  }
+
+  return {
+    type: normalizedType,
   };
 }
 
@@ -664,6 +690,112 @@ export async function listTelegramTransactions({
   };
 }
 
+async function listCategoriesByType({
+  userId,
+  type,
+}: {
+  userId: string;
+  type: TransactionCommandType;
+}) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("categories")
+    .select("name")
+    .eq("user_id", userId)
+    .in("type", [...getCategoryTypes(type)])
+    .order("name");
+
+  if (error) {
+    throw new Error(`Không thể tải danh mục ${getTypeLabel(type)}.`);
+  }
+
+  return (data || [])
+    .map((item) => item.name)
+    .filter((item): item is string => Boolean(item));
+}
+
+async function listInvestmentAssets(userId: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("investment_assets")
+    .select("name,is_business,category:categories(name)")
+    .eq("user_id", userId)
+    .order("name");
+
+  if (error) {
+    throw new Error("Không thể tải danh sách khoản đầu tư.");
+  }
+
+  return ((data || []) as Array<{
+    name?: string | null;
+    is_business?: boolean | null;
+    category?: { name?: string | null } | null;
+  }>).filter((item) => item.name);
+}
+
+export async function listTelegramCategories({
+  chatId,
+  filter,
+}: {
+  chatId: string;
+  filter: CategoryListCommandPayload;
+}) {
+  const userId = await getLinkedUser(chatId);
+
+  if (!userId) {
+    return {
+      success: false as const,
+      message:
+        "Chat Telegram này chưa được liên kết. Vào trang Telegram trong TJFinance để kết nối bot trước.",
+    };
+  }
+
+  const sections: string[] = [];
+  const categoryTypes: TransactionCommandType[] =
+    filter.type === "all"
+      ? ["expense", "income", "investment"]
+      : filter.type === "asset"
+        ? []
+        : [filter.type];
+
+  for (const type of categoryTypes) {
+    const categoryNames = await listCategoriesByType({ userId, type });
+
+    sections.push(
+      [
+        `DANH MỤC ${getTypeLabel(type).toUpperCase()}: ${categoryNames.length} mục`,
+        ...(categoryNames.length === 0
+          ? ["Chưa có dữ liệu."]
+          : categoryNames.map((name, index) => `${index + 1}. ${name}`)),
+      ].join("\n"),
+    );
+  }
+
+  if (filter.type === "asset" || filter.type === "all") {
+    const assets = await listInvestmentAssets(userId);
+
+    sections.push(
+      [
+        `KHOẢN ĐẦU TƯ: ${assets.length} mục`,
+        ...(assets.length === 0
+          ? ["Chưa có dữ liệu."]
+          : assets.map((item, index) => {
+              const categoryName = item.category?.name
+                ? ` | ${item.category.name}`
+                : "";
+              const businessLabel = item.is_business ? " | business" : "";
+              return `${index + 1}. ${item.name}${categoryName}${businessLabel}`;
+            })),
+      ].join("\n"),
+    );
+  }
+
+  return {
+    success: true as const,
+    message: sections.join("\n\n"),
+  };
+}
+
 export function buildTelegramHelpMessage() {
   return [
     "Các lệnh hỗ trợ:",
@@ -672,6 +804,7 @@ export function buildTelegramHelpMessage() {
     "/income dd/mm/yyyy so_tien | danh_muc | ten_giao_dich | ghi_chu",
     "/investment dd/mm/yyyy so_tien | ten_khoan_dau_tu | danh_muc | ten_giao_dich | ghi_chu",
     "/list <all|expense|income|investment> <today|week|month|year>",
+    "/categories <all|expense|income|investment|asset>",
     "/help - Xem hướng dẫn",
     "",
     "Ví dụ:",
@@ -679,6 +812,7 @@ export function buildTelegramHelpMessage() {
     "/income 07/07/2026 15000000 | Lương | Lương tháng 7",
     "/investment 07/07/2026 2000000 | Quỹ VCBF | Cổ phiếu | Mua thêm tháng 7",
     "/list all month",
+    "/categories all",
     "",
     "Lưu ý: lệnh /investment hiện hỗ trợ tạo nhanh khoản đầu tư thường, không dùng cho khoản business.",
   ].join("\n");

@@ -5,7 +5,9 @@ import {
   createTelegramInvestment,
   createTelegramTransaction,
   linkTelegramAccount,
+  listTelegramCategories,
   listTelegramTransactions,
+  parseCategoryListCommand,
   parseExpenseCommand,
   parseIncomeCommand,
   parseInvestmentCommand,
@@ -168,6 +170,29 @@ export async function POST(request: Request) {
       }
 
       const result = await listTelegramTransactions({
+        chatId,
+        filter: parsed,
+      });
+      await replyToTelegram(chatId, result.message);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (command === "/categories") {
+      const parsed = parseCategoryListCommand(rawArgs);
+
+      if (!parsed) {
+        await replyToTelegram(
+          chatId,
+          [
+            "Cú pháp chưa đúng.",
+            "Dùng: /categories <all|expense|income|investment|asset>",
+            "Ví dụ: /categories all",
+          ].join("\n"),
+        );
+        return NextResponse.json({ ok: true });
+      }
+
+      const result = await listTelegramCategories({
         chatId,
         filter: parsed,
       });
