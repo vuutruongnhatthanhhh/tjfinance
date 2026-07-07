@@ -7,6 +7,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle,
   Banknote,
+  Bot,
   ChevronRight,
   Facebook,
   Landmark,
@@ -59,6 +60,11 @@ const navItems: NavItem[] = [
     href: "/categories",
     label: "Danh mục",
     icon: <Tag className="h-5 w-5" />,
+  },
+  {
+    href: "/telegram",
+    label: "Telegram",
+    icon: <Bot className="h-5 w-5" />,
   },
 ];
 

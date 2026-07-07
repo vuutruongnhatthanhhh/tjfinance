@@ -52,8 +52,9 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/register") ||
     pathname.startsWith("/verify-email") ||
     pathname.startsWith("/api/auth/");
+  const isTelegramWebhookRoute = pathname.startsWith("/api/telegram/webhook");
 
-  if (!user && !isAuthPage) {
+  if (!user && !isAuthPage && !isTelegramWebhookRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
