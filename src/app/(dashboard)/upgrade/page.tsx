@@ -1,11 +1,17 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import DashboardLayoutClient from "./DashboardLayoutClient";
-import { getEffectiveSubscription, normalizeCycle } from "@/lib/billing";
+import {
+  getEffectiveSubscription,
+  normalizeCycle,
+  normalizePlan,
+} from "@/lib/billing";
+import UpgradePageClient from "./UpgradePageClient";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default async function UpgradePage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
@@ -24,15 +30,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
   });
 
   return (
-    <DashboardLayoutClient
-      userEmail={user.email}
-      userName={user.user_metadata?.full_name}
+    <UpgradePageClient
       currentPlan={currentSubscription.effectivePlan}
-      planStatus={currentSubscription.status}
       currentCycle={normalizeCycle(subscription?.renewal_cycle)}
       expiresAt={subscription?.expires_at ?? null}
-    >
-      {children}
-    </DashboardLayoutClient>
+      rawPlan={normalizePlan(subscription?.plan)}
+    />
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowDownCircle,
@@ -10,17 +10,19 @@ import {
   Bot,
   ChevronRight,
   Facebook,
+  Gem,
   Landmark,
   LayoutDashboard,
   LogOut,
   Mailbox,
+  Sparkles,
   Tag,
   Wallet,
   X,
   Youtube,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 import AccountSettingsModal from "./AccountSettingsModal";
 import FeedbackModal from "./FeedbackModal";
 
@@ -86,6 +88,10 @@ interface SidebarProps {
   onClose: () => void;
   userEmail?: string;
   userName?: string;
+  currentPlan: "free" | "plus";
+  planStatus: "active" | "expired" | "canceled";
+  currentCycle: "monthly" | "yearly";
+  expiresAt?: string | null;
   showToast: (message: string, type?: "success" | "error") => void;
 }
 
@@ -94,6 +100,10 @@ export default function Sidebar({
   onClose,
   userEmail,
   userName,
+  currentPlan,
+  planStatus,
+  currentCycle,
+  expiresAt,
   showToast,
 }: SidebarProps) {
   const pathname = usePathname();
@@ -109,16 +119,41 @@ export default function Sidebar({
     previousPathnameRef.current = pathname;
   }, [isOpen, onClose, pathname]);
 
+  useEffect(() => {
+    router.prefetch("/investments");
+    router.prefetch("/investment-portfolio");
+    router.prefetch("/telegram");
+    router.prefetch("/upgrade");
+  }, [router]);
+
+  const planMeta = useMemo(() => {
+    const isPlusActive =
+      currentPlan === "plus" &&
+      planStatus === "active" &&
+      (!expiresAt || new Date(expiresAt) > new Date());
+
+    return {
+      label: isPlusActive ? "Plus" : "Free",
+      description: isPlusActive
+        ? expiresAt
+          ? `Gói ${currentCycle === "yearly" ? "năm" : "tháng"} đến ${formatDate(expiresAt)}`
+          : "Đã kích hoạt gói Plus"
+        : "Dùng miễn phí",
+      badgeClass: isPlusActive
+        ? "linear-gradient(135deg, #2D9A4B, #1a7a35)"
+        : "rgba(226,255,232,0.08)",
+    };
+  }, [currentCycle, currentPlan, expiresAt, planStatus]);
+
   const openFeedbackModal = () => {
     setShowFeedbackModal(true);
     onClose();
   };
 
-  useEffect(() => {
-    router.prefetch("/investments");
-    router.prefetch("/investment-portfolio");
-    router.prefetch("/telegram");
-  }, [router]);
+  const openUpgradePage = () => {
+    router.push("/upgrade");
+    onClose();
+  };
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -146,7 +181,7 @@ export default function Sidebar({
       >
         <div className="flex items-center gap-3">
           <div
-            className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
             style={{
               background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
               boxShadow: "0 0 15px rgba(45,154,75,0.4)",
@@ -155,9 +190,7 @@ export default function Sidebar({
             <Banknote className="h-5 w-5 text-white" />
           </div>
           <div>
-            <span className="text-lg font-bold leading-none text-white">
-              TJ
-            </span>
+            <span className="text-lg font-bold leading-none text-white">TJ</span>
             <span
               className="text-lg font-bold leading-none"
               style={{ color: "#2D9A4B" }}
@@ -167,8 +200,9 @@ export default function Sidebar({
           </div>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className="h-8 w-8 rounded-lg flex items-center justify-center transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
           style={{ color: "rgba(226,255,232,0.5)" }}
         >
           <X className="h-4 w-4" />
@@ -179,6 +213,7 @@ export default function Sidebar({
         {navItems.map((item) => {
           const isActive =
             pathname === item.href || pathname.startsWith(`${item.href}/`);
+
           return (
             <Link
               key={item.href}
@@ -201,6 +236,31 @@ export default function Sidebar({
         className="space-y-3 border-t px-3 py-4"
         style={{ borderColor: "rgba(45,154,75,0.15)" }}
       >
+        <button
+          type="button"
+          onClick={openUpgradePage}
+          className="flex w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200 hover:-translate-y-0.5"
+          style={{
+            borderColor: "rgba(45,154,75,0.16)",
+            background:
+              "linear-gradient(135deg, rgba(45,154,75,0.18), rgba(45,154,75,0.08))",
+            color: "#e2ffe8",
+          }}
+        >
+          <div
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl"
+            style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}
+          >
+            <Sparkles className="h-5 w-5 text-white" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-white">Nâng cấp tài khoản</p>
+            <p className="truncate text-xs text-[rgba(226,255,232,0.58)]">
+              Gói hiện tại: {planMeta.label}
+            </p>
+          </div>
+        </button>
+
         <div className="flex items-center gap-2 px-1">
           {socialLinks.map((item) => (
             <Link
@@ -239,10 +299,8 @@ export default function Sidebar({
         >
           <div className="flex items-center gap-3">
             <div
-              className="h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white"
-              style={{
-                background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
-              }}
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+              style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}
             >
               {userInitial}
             </div>
@@ -256,9 +314,20 @@ export default function Sidebar({
               >
                 {userEmail}
               </p>
+              <div
+                className="mt-2 inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold text-[#9cf0b8]"
+                style={{
+                  borderColor: "rgba(45,154,75,0.14)",
+                  background: "rgba(45,154,75,0.08)",
+                }}
+              >
+                <Gem className="h-3.5 w-3.5" />
+                {planMeta.label} • {planMeta.description}
+              </div>
             </div>
           </div>
         </div>
+
         <button
           type="button"
           onClick={openFeedbackModal}
@@ -271,7 +340,9 @@ export default function Sidebar({
           <Mailbox className="h-5 w-5" />
           Hòm thư góp ý
         </button>
+
         <button
+          type="button"
           onClick={handleLogout}
           className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-400 transition-all duration-200 hover:bg-red-500/10"
         >
@@ -294,7 +365,7 @@ export default function Sidebar({
             style={{ borderColor: "rgba(45,154,75,0.15)" }}
           >
             <div
-              className="h-9 w-9 flex-shrink-0 rounded-xl flex items-center justify-center"
+              className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"
               style={{
                 background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
                 boxShadow: "0 0 15px rgba(45,154,75,0.4)",
@@ -303,9 +374,7 @@ export default function Sidebar({
               <Banknote className="h-5 w-5 text-white" />
             </div>
             <div className="ml-3 max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
-              <span className="text-lg font-bold leading-none text-white">
-                TJ
-              </span>
+              <span className="text-lg font-bold leading-none text-white">TJ</span>
               <span
                 className="text-lg font-bold leading-none"
                 style={{ color: "#2D9A4B" }}
@@ -319,6 +388,7 @@ export default function Sidebar({
             {navItems.map((item) => {
               const isActive =
                 pathname === item.href || pathname.startsWith(`${item.href}/`);
+
               return (
                 <Link
                   key={item.href}
@@ -348,6 +418,24 @@ export default function Sidebar({
             className="space-y-2 border-t px-2 py-4"
             style={{ borderColor: "rgba(45,154,75,0.15)" }}
           >
+            <button
+              type="button"
+              onClick={openUpgradePage}
+              className="flex w-full items-center rounded-xl px-[14px] py-2.5 text-sm font-medium transition-all duration-300 hover:bg-[rgba(45,154,75,0.14)] group-hover/sidebar:px-3"
+              style={{
+                color: "#e2ffe8",
+                background:
+                  "linear-gradient(135deg, rgba(45,154,75,0.16), rgba(45,154,75,0.07))",
+                border: "1px solid rgba(45,154,75,0.14)",
+              }}
+            >
+              <Sparkles className="h-5 w-5 flex-shrink-0" />
+              <span className="w-0 flex-shrink-0 transition-[width] duration-300 group-hover/sidebar:w-3" />
+              <span className="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 group-hover/sidebar:max-w-[200px] group-hover/sidebar:opacity-100">
+                Nâng cấp tài khoản
+              </span>
+            </button>
+
             <div className="hidden items-center gap-2 px-1 group-hover/sidebar:flex">
               {socialLinks.map((item) => (
                 <Link
@@ -386,20 +474,16 @@ export default function Sidebar({
             >
               <div className="flex justify-center py-2 group-hover/sidebar:hidden">
                 <div
-                  className="h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                  style={{
-                    background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
-                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-bold text-white"
+                  style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}
                 >
                   {userInitial}
                 </div>
               </div>
               <div className="hidden items-center gap-3 px-3 py-2 group-hover/sidebar:flex">
                 <div
-                  className="h-9 w-9 flex-shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white"
-                  style={{
-                    background: "linear-gradient(135deg, #2D9A4B, #1a7a35)",
-                  }}
+                  className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
+                  style={{ background: "linear-gradient(135deg, #2D9A4B, #1a7a35)" }}
                 >
                   {userInitial}
                 </div>
@@ -412,6 +496,9 @@ export default function Sidebar({
                     style={{ color: "rgba(226,255,232,0.4)" }}
                   >
                     {userEmail}
+                  </p>
+                  <p className="mt-1 truncate text-[11px] font-semibold text-[#9cf0b8]">
+                    {planMeta.label} • {planMeta.description}
                   </p>
                 </div>
               </div>
@@ -434,6 +521,7 @@ export default function Sidebar({
             </button>
 
             <button
+              type="button"
               onClick={handleLogout}
               className="flex w-full items-center rounded-xl px-[14px] py-2.5 text-sm font-medium text-red-400 transition-all duration-300 hover:bg-red-500/10 group-hover/sidebar:px-3"
             >

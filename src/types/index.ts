@@ -6,6 +6,30 @@ export interface User {
   created_at: string;
 }
 
+export interface Subscription {
+  user_id: string;
+  plan: "free" | "plus";
+  status: "active" | "expired" | "canceled";
+  renewal_cycle: "monthly" | "yearly";
+  expires_at?: string | null;
+  last_payment_order_code?: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BillingOrder {
+  id: string;
+  order_code: number;
+  user_id: string;
+  plan: "free" | "plus";
+  amount: number;
+  renewal_cycle: "monthly" | "yearly";
+  status: "pending" | "paid" | "canceled" | "failed" | "refunded";
+  paid_at?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Category {
   id: string;
   user_id: string;

@@ -9,12 +9,20 @@ interface DashboardLayoutClientProps {
   children: React.ReactNode;
   userEmail?: string;
   userName?: string;
+  currentPlan: "free" | "plus";
+  planStatus: "active" | "expired" | "canceled";
+  currentCycle: "monthly" | "yearly";
+  expiresAt?: string | null;
 }
 
 export default function DashboardLayoutClient({
   children,
   userEmail,
   userName,
+  currentPlan,
+  planStatus,
+  currentCycle,
+  expiresAt,
 }: DashboardLayoutClientProps) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -123,6 +131,10 @@ export default function DashboardLayoutClient({
           onClose={() => setSidebarOpen(false)}
           userEmail={userEmail}
           userName={userName}
+          currentPlan={currentPlan}
+          planStatus={planStatus}
+          currentCycle={currentCycle}
+          expiresAt={expiresAt}
           showToast={showToast}
         />
 

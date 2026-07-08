@@ -53,8 +53,18 @@ export async function proxy(request: NextRequest) {
     pathname.startsWith("/verify-email") ||
     pathname.startsWith("/api/auth/");
   const isTelegramWebhookRoute = pathname.startsWith("/api/telegram/webhook");
+  const isPayOSWebhookRoute = pathname.startsWith("/api/payos/webhook");
+  const isBillingResultPage = pathname.startsWith("/billing/result");
+  const isBillingSyncRoute = pathname.startsWith("/api/billing/sync");
 
-  if (!user && !isAuthPage && !isTelegramWebhookRoute) {
+  if (
+    !user &&
+    !isAuthPage &&
+    !isTelegramWebhookRoute &&
+    !isPayOSWebhookRoute &&
+    !isBillingResultPage &&
+    !isBillingSyncRoute
+  ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
